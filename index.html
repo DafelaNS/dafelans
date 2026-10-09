@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Dafela Nail Studio</title>
+<meta name="theme-color" content="#2b2724">
+<meta name="description" content="Dafela Nail Studio: servicios, trabajos, promociones y ubicación.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Jost:wght@300;400&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#efe9e1;--card:#e3dacd;--ink:#2b2724;--mut:#7a6d61;--line:#c9bcab}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:300 16px/1.6 Jost,sans-serif;padding-bottom:env(safe-area-inset-bottom)}
+header{text-align:center;padding:calc(46px + env(safe-area-inset-top)) 20px 28px}
+h1{font:400 clamp(3.4rem,17vw,6rem)/1 'Cormorant Garamond',serif;letter-spacing:.06em;margin:0}
+.sub{letter-spacing:.55em;text-indent:.55em;font-size:.72rem;margin:10px 0 0}
+.lema{font:italic 1.25rem 'Cormorant Garamond',serif;color:var(--mut);margin:16px 0 0}
+nav{position:sticky;top:0;z-index:5;background:var(--bg);display:flex;gap:8px;overflow-x:auto;padding:10px 16px;border-block:1px solid var(--line);scrollbar-width:none}
+nav a{flex:none;color:var(--ink);text-decoration:none;border:1px solid var(--line);border-radius:99px;padding:6px 18px;font-size:.92rem}
+main{max-width:720px;margin:auto;padding:0 18px 60px}
+section{padding-top:38px;scroll-margin-top:52px}
+h2{font:italic 400 2.1rem 'Cormorant Garamond',serif;margin:0 0 14px}
+details{background:var(--card);border-radius:16px;margin-bottom:10px;padding:0 18px}
+summary{padding:15px 0;font:600 1.35rem 'Cormorant Garamond',serif;cursor:pointer}
+.it{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
+.it small{color:var(--mut);white-space:nowrap;font-size:.9rem}
+.gal{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.gal img{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:10px}
+.promo{background:var(--card);border-radius:16px;padding:18px;margin-bottom:10px}
+.promo b{font:600 1.4rem 'Cormorant Garamond',serif}.promo p{margin:6px 0 0}.promo small{color:var(--mut)}
+iframe{width:100%;height:270px;border:0;border-radius:16px;margin-top:12px}
+.btn{display:inline-block;margin:12px 8px 0 0;background:var(--ink);color:#fff;border-radius:99px;padding:11px 24px;text-decoration:none}
+a:focus-visible,summary:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+footer{text-align:center;color:var(--mut);padding:10px 20px 40px;font:italic 1.05rem 'Cormorant Garamond',serif}
+</style></head><body>
+<header><h1>DAFELA</h1><p class="sub">NAIL STUDIO</p><p class="lema" id="lema"></p></header>
+<nav id="nav" aria-label="Secciones"></nav>
+<main id="m"><p style="text-align:center;padding:40px">Cargando…</p></main>
+<footer>Uñas auténticas para versiones reales de ti</footer>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
+<script>
+const U="https://kttoubqetucnsfmpauug.supabase.co",K="sb_publishable_O6RnBiuRbNv86fP60dFb6w__94gJowB";
+const $=s=>document.querySelector(s);
+const e=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const dur=m=>!m?'':m<60?m+' min':Math.floor(m/60)+' h'+(m%60?' '+m%60+' min':'');
+(async()=>{const m=$('#m');try{
+  const{data:d,error}=await supabase.createClient(U,K).rpc('catalogo');if(error)throw error;
+  const a=d.ajustes||{},sv=d.servicios||[],fo=d.fotos||[],pr=d.promociones||[],n=[];
+  const cats=[...new Set(sv.map(s=>s.categoria))];let h='';
+  $('#lema').textContent=a.lema||'';
+  if(cats.length){n.push(['sv','Servicios']);
+    h+=`<section id="sv"><h2>Servicios</h2>${cats.map(c=>`<details><summary>${e(c)}</summary>${sv.filter(s=>s.categoria==c).map(s=>`<div class="it"><span>${e(s.nombre)}</span><small>${dur(s.duracion_min)}</small></div>`).join('')}</details>`).join('')}</section>`}
+  if(fo.length){n.push(['tr','Trabajos']);
+    h+=`<section id="tr"><h2>Nuestros trabajos</h2><div class="gal">${fo.map(f=>`<img loading="lazy" src="${e(f.url)}" alt="${e(f.titulo||'Trabajo de Dafela')}">`).join('')}</div></section>`}
+  if(pr.length){n.push(['pr','Promociones']);
+    h+=`<section id="pr"><h2>Promociones</h2>${pr.map(p=>`<div class="promo"><b>${e(p.titulo)}</b>${p.descripcion?`<p>${e(p.descripcion)}</p>`:''}${p.vigente_hasta?`<small>Válida hasta ${e(p.vigente_hasta)}</small>`:''}</div>`).join('')}</section>`}
+  const mp=(a.mapa_url||'').match(/https:\/\/www\.google\.com\/maps\/embed[^"'\s>]*/)?.[0];
+  const wa=(a.whatsapp||'').replace(/\D/g,''),ig=(a.instagram||'').replace(/^@/,'').trim();
+  if(a.direccion||mp||wa||ig||a.horario){n.push(['ub','Ubicación']);
+    h+=`<section id="ub"><h2>Visítanos</h2>${a.direccion?`<p><b>${e(a.direccion)}</b></p>`:''}${a.referencias?`<p>${e(a.referencias)}</p>`:''}${a.horario?`<p style="white-space:pre-line">${e(a.horario)}</p>`:''}${mp?`<iframe loading="lazy" src="${e(mp)}" title="Mapa del salón"></iframe>`:''}${wa?`<a class="btn" href="https://wa.me/${wa}">WhatsApp</a>`:''}${ig?`<a class="btn" href="https://instagram.com/${encodeURIComponent(ig)}">Instagram</a>`:''}</section>`}
+  m.innerHTML=h||'<p style="text-align:center;padding:40px">Muy pronto verás aquí nuestros servicios.</p>';
+  $('#nav').innerHTML=n.map(([i,l])=>`<a href="#${i}">${l}</a>`).join('');
+}catch{m.innerHTML='<p style="text-align:center;padding:40px">No se pudo cargar la página. Recarga e intenta de nuevo.</p>'}})();
+</script></body></html>
