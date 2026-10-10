@@ -65,7 +65,7 @@ const PAL=['#2b2724','#a08a73','#c9bcab','#7a6d61','#d6a99a','#8aa39b','#5d5148'
 let role,tab='citas',rows=[],sv=[],per='Mes',fp='Este mes',dp='6 meses',sm=null,ch=[],DD=null;
 const CAT=['Esmaltes','Limas','Acrílico','Decoración','Otros'],MET=['Efectivo','Transferencia','Tarjeta'],GT=['Renta','Sueldo','Material','Servicios','Otro'];
 const T={
-citas:{n:'Citas',sel:'*,clientas(nombre,telefono),servicios(nombre)',ord:'fecha_hora',asc:1,pc:'fecha_hora',fut:1,
+citas:{n:'Citas',cobrar:1,sel:'*,clientas(nombre,telefono),servicios(nombre)',ord:'fecha_hora',asc:1,pc:'fecha_hora',fut:1,
  f:[['clienta_nombre','Nombre de la clienta','text'],['clienta_tel','Teléfono','tel'],['servicio_id','Servicio','sv'],['fecha_hora','Fecha y hora','datetime-local'],['duracion_min','Duración (min)','number'],['atiende','Atiende','text'],['estado','Estado',['pendiente','confirmada','realizada','cancelada']],['notas','Notas','area']],
  pre:r=>({clienta_nombre:r.clientas?.nombre,clienta_tel:r.clientas?.telefono}),
  post:async p=>{const n=p.clienta_nombre?.trim(),t=p.clienta_tel?.trim()||null;delete p.clienta_nombre;delete p.clienta_tel;
@@ -120,7 +120,7 @@ function draw(){const c=T[tab];
  $('#list').innerHTML=(c.pc?`<select id="per" class="o">${['Hoy','Semana','Mes','Todo'].map(x=>`<option${x==per?' selected':''}>${x}</option>`).join('')}</select>`:'')
  +(c.extra?c.extra():'')
  +(c.sum?`<div class="tot">Total: ${money(total)}</div>`:'')
- +(rows.map((r,i)=>`<div class="row" data-i="${i}">${c.img?`<img src="${e(c.img(r))}" alt="">`:''}<div><b>${e(c.t(r))}</b><small>${e(c.s(r))}</small></div>${c.step?'<button class="st" data-d="-1">−</button><button class="st" data-d="1">+</button>':''}${c.b&&c.b(r)?`<span class="bd">${e(c.b(r))}</span>`:''}</div>`).join('')||'<p style="color:var(--mut);text-align:center;padding:30px">Aún no hay nada aquí. Toca “+ Nuevo” para agregar.</p>')}
+ +(rows.map((r,i)=>`<div class="row" data-i="${i}">${c.img?`<img src="${e(c.img(r))}" alt="">`:''}<div><b>${e(c.t(r))}</b><small>${e(c.s(r))}</small></div>${c.cobrar&&r.estado!='cancelada'?'<button class="st" data-cobrar="1" title="Cobrar">$</button>':''}${c.step?'<button class="st" data-d="-1">−</button><button class="st" data-d="1">+</button>':''}${c.b&&c.b(r)?`<span class="bd">${e(c.b(r))}</span>`:''}</div>`).join('')||'<p style="color:var(--mut);text-align:center;padding:30px">Aún no hay nada aquí. Toca “+ Nuevo” para agregar.</p>')}
 
 /* ---------- formularios ---------- */
 async function up(f){const b=await createImageBitmap(f),k=Math.min(1,1400/Math.max(b.width,b.height)),c=document.createElement('canvas');
@@ -130,13 +130,15 @@ async function up(f){const b=await createImageBitmap(f),k=Math.min(1,1400/Math.m
 async function choque(p,id){const s=new Date(p.fecha_hora),d=(p.duracion_min||60)*6e4;
  const{data}=await sb.from('citas').select('id,fecha_hora,duracion_min').neq('estado','cancelada').gte('fecha_hora',new Date(+s-864e5).toISOString()).lt('fecha_hora',new Date(+s+864e5).toISOString());
  return(data||[]).some(x=>x.id!=id&&+s<+new Date(x.fecha_hora)+(x.duracion_min||60)*6e4&&+s+d>+new Date(x.fecha_hora))}
-async function cobro(id,p,nm){const{data:ex}=await sb.from('ingresos').select('id').eq('cita_id',id).maybeSingle();if(ex)return false;
+async function cobro(id,p,nm){const{data:ya}=await sb.rpc('cita_cobrada',{p_cita:String(id)});if(ya)return false;
  const s=sv.find(x=>x.id==p.servicio_id),d=$('#dlg');
- d.innerHTML=`<form id="cf"><h3>Registrar cobro</h3><p>${e(s?s.nombre:'Servicio')}${nm?' · '+e(nm):''}</p><label>Monto cobrado<input name="monto" type="number" step="any" required value="${s?.precio??''}"></label><label>Pago<select name="metodo">${MET.map(o=>`<option>${o}</option>`).join('')}</select></label><div class="bt"><button type="button" id="cx">Omitir</button><button class="ok">Guardar ingreso</button></div></form>`;
+ d.innerHTML=`<form id="cf"><h3>Registrar cobro</h3><p>${e(s?s.nombre:'Servicio')}${nm?' · '+e(nm):''}</p><label>Monto cobrado<input name="monto" type="number" step="any" required value="${s?.precio??''}"></label><label>Pago<select name="metodo">${MET.map(o=>`<option>${o}</option>`).join('')}</select></label><div class="bt"><button type="button" id="cx">Omitir</button><button class="ok">Guardar cobro</button></div></form>`;
  d.showModal();$('#cx').onclick=()=>{d.close();load()};
  $('#cf').onsubmit=async ev=>{ev.preventDefault();const f=new FormData(ev.target);
-  const{error}=await sb.from('ingresos').insert({fecha:ymd(new Date(p.fecha_hora)),concepto:(s?s.nombre:'Servicio')+(nm?' · '+nm:''),monto:Number(f.get('monto')),metodo:f.get('metodo'),atiende:p.atiende,cita_id:id});
-  if(error)return alert(error.message);d.close();load()};return true}
+  const{data:ok,error}=await sb.rpc('registrar_cobro',{p_cita:String(id),p_fecha:ymd(new Date(p.fecha_hora)),p_concepto:(s?s.nombre:'Servicio')+(nm?' · '+nm:''),p_monto:Number(f.get('monto')),p_metodo:f.get('metodo'),p_atiende:p.atiende||null});
+  if(error)return alert(error.message);
+  await sb.from('citas').update({estado:'realizada'}).eq('id',id);
+  d.close();if(ok===false)alert('Esa cita ya estaba cobrada.');load()};return true}
 function form(r){const c=T[tab],v=r?{...r,...(c.pre?c.pre(r):{})}:{};
  const fld=([k,l,t])=>{const x=v[k],n=`name="${k}"`;let h;
   if(Array.isArray(t))h=`<select ${n}>${t.map(o=>`<option${o==x?' selected':''}>${o}</option>`).join('')}</select>`;
@@ -165,7 +167,7 @@ function form(r){const c=T[tab],v=r?{...r,...(c.pre?c.pre(r):{})}:{};
   const tb=c.tb||tab,q=c.one?sb.from(tb).upsert({...p,id:1}):r?.id?sb.from(tb).update(p).eq('id',r.id):sb.from(tb).insert(p);
   const{data:sd,error}=await q.select('id');if(error)throw error;d.close();
   const cid=r?.id||sd?.[0]?.id;
-  if(tab=='citas'&&role=='duena'&&p.estado=='realizada'&&cid&&await cobro(cid,p,nm))return;
+  if(tab=='citas'&&p.estado=='realizada'&&cid&&await cobro(cid,p,nm))return;
   load()}catch(x){alert(x.message)}b.disabled=false}}
 
 /* ---------- finanzas ---------- */
@@ -250,6 +252,7 @@ document.addEventListener('click',async ev=>{const t=ev.target,r=t.closest('.row
   if(!nuevos.length)return alert('Los gastos fijos de este mes ya están registrados (o no hay fijos activos).');
   if(!confirm('Se agregarán '+nuevos.length+' gastos fijos a este mes. ¿Continuar?'))return;
   const{error}=await sb.from('gastos').insert(nuevos);if(error)return alert(error.message);tab='gastos';load()}
+ else if(t.dataset.cobrar){const x=rows[r.dataset.i];if(!await cobro(x.id,{servicio_id:x.servicio_id,fecha_hora:x.fecha_hora,atiende:x.atiende},x.clientas?.nombre))alert('Esa cita ya está cobrada.')}
  else if(t.classList.contains('st')){const x=rows[r.dataset.i],n=Math.max(0,(x.cantidad||0)+Number(t.dataset.d));await sb.from('inventario').update({cantidad:n}).eq('id',x.id);x.cantidad=n;draw()}
  else if(r)form(rows[r.dataset.i])});
 document.addEventListener('change',ev=>{const i=ev.target.id,v=ev.target.value;
