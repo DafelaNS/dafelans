@@ -40,6 +40,21 @@ a:focus-visible,summary:focus-visible,button:focus-visible{outline:2px solid var
 .d.on,.s.on{background:var(--ink);color:#fff;border-color:var(--ink)}.d.on small{color:#e3dacd}
 .d:disabled{opacity:.35;cursor:default}
 .slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:8px;margin:8px 0}
+.s{cursor:default}
+.seg{display:flex;gap:6px;margin-top:12px}
+.seg button{flex:1;border:1px solid var(--line);background:#fff;border-radius:99px;padding:8px;font:inherit;color:var(--ink);cursor:pointer}
+.seg button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.nv{display:flex;justify-content:space-between;align-items:center;margin:12px 0 8px}
+.nv b{font-weight:400;text-transform:capitalize;text-align:center}
+.nv button{flex:none;width:38px;height:38px;border:1px solid var(--line);background:#fff;border-radius:99px;font-size:1.2rem;line-height:1;color:var(--ink);cursor:pointer}
+.nv button:disabled{opacity:.3;cursor:default}
+.wk{border-top:1px solid var(--line);padding:8px 0}.wk>b{font-weight:400;display:block;margin-bottom:4px}
+.mg{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.mg .h{font-size:.75rem;color:var(--mut);text-align:center}
+.cell{border:1px solid var(--line);background:#fff;border-radius:10px;padding:6px 0;text-align:center;font:inherit;color:var(--ink);line-height:1.25;min-height:54px;cursor:pointer}
+.cell small{display:block;font-size:.62rem}
+.cell.ok small{color:#2f6b3d}.cell.few small{color:#8a5a00}.cell.full small{color:#a33}
+.cell:disabled{opacity:.4;cursor:default}
 .hint{color:var(--mut);font-size:.92rem;margin:8px 0}
 .fab{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom));background:var(--ink);color:#fff;border-radius:99px;padding:12px 22px;text-decoration:none;box-shadow:0 4px 14px #0004;z-index:6}
 footer{text-align:center;color:var(--mut);padding:10px 20px 40px;font:italic 1.05rem 'Cormorant Garamond',serif}
@@ -59,39 +74,52 @@ const hoy=new Date().toLocaleDateString('sv');
 const DN=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
 const t12=s=>{const[h,m]=s.split(':').map(Number);return(h%12||12)+(m?':'+String(m).padStart(2,'0'):'')+(h<12?' am':' pm')};
 
-async function initAg(cl,sv,hp,wa){const root=$('#ag-root');
- const cur={sv:null,day:null,t:null},d0=new Date();d0.setHours(0,0,0,0);
- const days=[...Array(21)].map((_,i)=>{const x=new Date(d0);x.setDate(x.getDate()+i);return x});
- const{data,error}=await cl.rpc('ocupado',{desde:days[0].toISOString(),hasta:new Date(+days[20]+864e5).toISOString()});
- if(error){root.innerHTML=`<p>Para agendar, escríbenos por WhatsApp.</p><a class="btn" href="https://wa.me/${wa}">WhatsApp</a>`;return}
+async function initAg(cl,sv,hp,wa,ig){const root=$('#ag-root');
+ const d0=new Date();d0.setHours(0,0,0,0);
+ const addD=(x,n)=>{const r=new Date(x);r.setDate(r.getDate()+n);return r};
+ const dmax=addD(d0,89),cur={sv:null,mode:'dia',day:d0};
+ const contacto=`<p class="hint">Para apartar tu horario, escríbenos:</p>${wa?`<a class="btn" href="https://wa.me/${wa}">WhatsApp</a>`:''}${ig?`<a class="btn" href="https://ig.me/m/${encodeURIComponent(ig)}">Instagram</a>`:''}`;
+ const{data,error}=await cl.rpc('ocupado',{desde:d0.toISOString(),hasta:addD(dmax,1).toISOString()});
+ if(error){root.innerHTML=contacto;return}
  const busy=(data||[]).map(x=>({i:+new Date(x.inicio),f:+new Date(x.inicio)+(x.duracion_min||60)*6e4}));
  const abierto=x=>{const w=hp.semana[x.getDay()];return!!(w&&w[0]&&w[1])};
- const slots=day=>{const w=hp.semana[day.getDay()];if(!w||!w[0]||!w[1]||!cur.sv)return[];
+ const slots=day=>{const w=hp.semana[day.getDay()];if(!w||!w[0]||!w[1])return[];
   const[h1,m1]=w[0].split(':').map(Number),[h2,m2]=w[1].split(':').map(Number),o=new Date(day),c=new Date(day);
   o.setHours(h1,m1,0,0);c.setHours(h2,m2,0,0);
-  const du=(cur.sv.duracion_min||60)*6e4,st=(hp.intervalo||30)*6e4,min=Date.now()+(hp.anticipacion??3)*36e5,out=[];
+  const du=(cur.sv?.duracion_min||60)*6e4,st=(hp.intervalo||30)*6e4,min=Date.now()+(hp.anticipacion??3)*36e5,out=[];
   for(let t=+o;t+du<=+c;t+=st){if(t<min)continue;if(busy.some(b=>t<b.f&&t+du>b.i))continue;out.push(t)}return out};
- cur.day=days.find(abierto)||null;
- root.innerHTML=`<label>Servicio<select id="ag-sv"><option value="">Elige tu servicio</option>${sv.map((s,i)=>`<option value="${i}">${e(s.nombre)}${s.duracion_min?' · '+dur(s.duracion_min):''}</option>`).join('')}</select></label>
- <label>Día</label><div class="days" id="ag-d"></div>
- <label>Hora</label><div id="ag-h"></div>
- <label>Tu nombre<input id="ag-n" autocomplete="name" placeholder="Nombre"></label>
- <button class="btn" id="ag-go" disabled>Pedir cita por WhatsApp</button>
- <p class="hint">Tu cita queda confirmada cuando te respondamos por WhatsApp.</p>`;
- const rd=()=>{$('#ag-d').innerHTML=days.map((x,i)=>`<button class="d${cur.day&&+x==+cur.day?' on':''}" data-i="${i}"${abierto(x)?'':' disabled'}><small>${DN[x.getDay()]}</small><br><b>${x.getDate()}</b><br><small>${x.toLocaleDateString('es-MX',{month:'short'}).replace('.','')}</small></button>`).join('')};
- const rh=()=>{const h=$('#ag-h');
-  if(!cur.sv){h.innerHTML='<p class="hint">Elige tu servicio para ver los horarios libres.</p>';return}
-  const s=slots(cur.day);
-  h.innerHTML=s.length?`<div class="slots">${s.map(t=>`<button class="s${t==cur.t?' on':''}" data-t="${t}">${new Date(t).toLocaleTimeString('es-MX',{hour:'numeric',minute:'2-digit',hour12:true})}</button>`).join('')}</div>`:'<p class="hint">No hay horarios libres ese día. Prueba con otro.</p>';
-  $('#ag-go').disabled=!cur.t};
- rd();rh();
- root.addEventListener('change',ev=>{if(ev.target.id=='ag-sv'){cur.sv=ev.target.value===''?null:sv[+ev.target.value];cur.t=null;rh()}});
+ const dl=[...Array(90)].map((_,i)=>addD(d0,i));
+ cur.day=dl.find(x=>slots(x).length)||dl.find(abierto)||d0;
+ const ws=x=>addD(x,-((x.getDay()+6)%7));
+ const mon=x=>x.toLocaleDateString('es-MX',{month:'short'}).replace('.','');
+ const lab=x=>x.toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long'});
+ const fT=t=>new Date(t).toLocaleTimeString('es-MX',{hour:'numeric',minute:'2-digit',hour12:true});
+ const chips=x=>{const s=slots(x);return s.length?`<div class="slots">${s.map(t=>`<span class="s">${fT(t)}</span>`).join('')}</div>`:''};
+ root.innerHTML=`<label>Servicio (ajusta los horarios a su duración)<select id="ag-sv"><option value="">Cualquiera</option>${sv.map((s,i)=>`<option value="${i}">${e(s.nombre)}${s.duracion_min?' · '+dur(s.duracion_min):''}</option>`).join('')}</select></label>
+ <div id="ag-v"></div>${contacto}`;
+ const vista=()=>{const x=cur.day,m=cur.mode;let ttl,prev,next,body,okp,okn;
+  if(m=='dia'){ttl=lab(x);prev=addD(x,-1);next=addD(x,1);
+   body=!abierto(x)?'<p class="hint">Ese día no abrimos.</p>':chips(x)||'<p class="hint">No hay horarios libres ese día. Prueba con otro.</p>';
+   const ok=t=>t>=d0&&t<=dmax;okp=ok(prev);okn=ok(next)}
+  else if(m=='semana'){const a=ws(x),z=addD(a,6);ttl=`${a.getDate()} ${mon(a)} – ${z.getDate()} ${mon(z)}`;prev=addD(a,-7);next=addD(a,7);
+   body=[0,1,2,3,4,5,6].map(i=>addD(a,i)).filter(t=>t>=d0&&t<=dmax).map(t=>`<div class="wk"><b>${DN[t.getDay()]} ${t.getDate()}</b>${!abierto(t)?'<span class="hint"> · Cerrado</span>':chips(t)||'<span class="hint"> · Sin horarios libres</span>'}</div>`).join('')||'<p class="hint">Sin días disponibles.</p>';
+   const ok=t=>{const w=ws(t);return addD(w,6)>=d0&&w<=dmax};okp=ok(prev);okn=ok(next)}
+  else{const y=x.getFullYear(),mo=x.getMonth(),f=new Date(y,mo,1),nd=new Date(y,mo+1,0).getDate();
+   ttl=f.toLocaleDateString('es-MX',{month:'long',year:'numeric'});prev=new Date(y,mo-1,1);next=new Date(y,mo+1,1);
+   let g=['L','M','M','J','V','S','D'].map(l=>`<span class="h">${l}</span>`).join('')+'<span></span>'.repeat((f.getDay()+6)%7);
+   for(let d=1;d<=nd;d++){const t=new Date(y,mo,d),off=t<d0||t>dmax||!abierto(t);let c='x',tx='';
+    if(!off){const n=slots(t).length;c=n==0?'full':n<=3?'few':'ok';tx=n==0?'Lleno':n<=3?'Pocos':'Libre'}
+    g+=`<button class="cell ${c}" data-t="${+t}"${off?' disabled':''}>${d}<small>${tx}</small></button>`}
+   body=`<div class="mg">${g}</div><p class="hint">Toca un día para ver sus horarios.</p>`;
+   const ok=t=>new Date(t.getFullYear(),t.getMonth()+1,0)>=d0&&t<=dmax;okp=ok(prev);okn=ok(next)}
+  $('#ag-v').innerHTML=`<div class="seg">${[['dia','Día'],['semana','Semana'],['mes','Mes']].map(([k,l])=>`<button data-m="${k}"${k==m?' class="on"':''}>${l}</button>`).join('')}</div>
+  <div class="nv"><button data-to="${+prev}" aria-label="Anterior"${okp?'':' disabled'}>‹</button><b>${ttl}</b><button data-to="${+next}" aria-label="Siguiente"${okn?'':' disabled'}>›</button></div>${body}`};
+ vista();
+ root.addEventListener('change',ev=>{if(ev.target.id=='ag-sv'){cur.sv=ev.target.value===''?null:sv[+ev.target.value];vista()}});
  root.addEventListener('click',ev=>{const b=ev.target.closest('button');if(!b)return;
-  if(b.classList.contains('d')){cur.day=days[+b.dataset.i];cur.t=null;rd();rh()}
-  else if(b.classList.contains('s')){cur.t=+b.dataset.t;rh()}
-  else if(b.id=='ag-go'){const n=$('#ag-n').value.trim();if(!n){alert('Escribe tu nombre.');$('#ag-n').focus();return}
-   const f=new Date(cur.t),msg=`Hola, soy ${n}. Quiero agendar ${cur.sv.nombre} el ${f.toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long'})} a las ${f.toLocaleTimeString('es-MX',{hour:'numeric',minute:'2-digit',hour12:true})}. ¿Está disponible?`;
-   window.open(`https://wa.me/${wa}?text=${encodeURIComponent(msg)}`,'_blank','noopener')}})}
+  if(b.dataset.m){cur.mode=b.dataset.m;if(cur.day<d0)cur.day=d0;if(cur.day>dmax)cur.day=dmax;vista()}
+  else if(b.dataset.to){cur.day=new Date(+b.dataset.to);vista()}
+  else if(b.dataset.t){cur.day=new Date(+b.dataset.t);cur.mode='dia';vista()}})}
 
 (async()=>{const m=$('#m');try{
   const cl=supabase.createClient(U,K);
@@ -105,18 +133,18 @@ async function initAg(cl,sv,hp,wa){const root=$('#ag-root');
     h+=`<section id="tr"><h2>Nuestros trabajos</h2><div class="gal">${fo.map(f=>`<img loading="lazy" src="${e(f.url)}" alt="${e(f.titulo||'Trabajo de Dafela')}">`).join('')}</div></section>`}
   if(pr.length){n.push(['pr','Promociones']);
     h+=`<section id="pr"><h2>Promociones</h2>${pr.map(p=>`<div class="promo"><b>${e(p.titulo)}</b>${p.descripcion?`<p>${e(p.descripcion)}</p>`:''}${p.vigente_hasta?`<small>Válida hasta ${e(new Date(p.vigente_hasta+'T00:00:00').toLocaleDateString('es-MX',{day:'numeric',month:'long'}))}</small>`:''}</div>`).join('')}</section>`}
-  const wa=(a.whatsapp||'').replace(/\D/g,'');
-  const agOk=!!(wa&&sv.length&&hp?.semana&&Object.values(hp.semana).some(v=>v&&v[0]&&v[1]));
-  if(agOk){n.push(['ag','Agenda']);h+=`<section id="ag"><h2>Agenda tu cita</h2><div class="ag" id="ag-root"></div></section>`}
+  const wa=(a.whatsapp||'').replace(/\D/g,''),ig0=(a.instagram||'').trim();
+  const agOk=!!((wa||ig0)&&sv.length&&hp?.semana&&Object.values(hp.semana).some(v=>v&&v[0]&&v[1]));
+  if(agOk){n.push(['ag','Horarios']);h+=`<section id="ag"><h2>Horarios disponibles</h2><div class="ag" id="ag-root"></div></section>`}
   const mp=(a.mapa_url||'').match(/https:\/\/www\.google\.com\/maps\/embed[^"'\s>]*/)?.[0];
   const ig=(a.instagram||'').trim().replace(/^https?:\/\/(www\.)?instagram\.com\//i,'').replace(/^@/,'').replace(/[\/?].*$/,'');
   const hz=hp?.semana?[1,2,3,4,5,6,0].filter(i=>hp.semana[i]?.[0]&&hp.semana[i]?.[1]).map(i=>DN[i]+' '+t12(hp.semana[i][0])+' – '+t12(hp.semana[i][1])).join('\n'):'';
   const hor=hz||a.horario;
   if(a.direccion||mp||wa||ig||hor){n.push(['ub','Ubicación']);
     h+=`<section id="ub"><h2>Visítanos</h2>${a.direccion?`<p><b>${e(a.direccion)}</b></p>`:''}${a.referencias?`<p>${e(a.referencias)}</p>`:''}${hor?`<p style="white-space:pre-line">${e(hor)}</p>`:''}${mp?`<iframe loading="lazy" src="${e(mp)}" title="Mapa del salón"></iframe>`:''}${a.direccion?`<a class="btn" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(a.direccion)}">Cómo llegar</a>`:''}${wa?`<a class="btn" href="https://wa.me/${wa}">WhatsApp</a>`:''}${ig?`<a class="btn" href="https://instagram.com/${encodeURIComponent(ig)}">Instagram</a>`:''}</section>`}
-  if(agOk)h+=`<a class="fab" href="#ag">Agendar cita</a>`;
+  if(agOk)h+=`<a class="fab" href="#ag">Ver horarios</a>`;
   m.innerHTML=h||'<p style="text-align:center;padding:40px">Muy pronto verás aquí nuestros servicios.</p>';
   $('#nav').innerHTML=n.map(([i,l])=>`<a href="#${i}">${l}</a>`).join('');
-  if(agOk)initAg(cl,sv,hp,wa);
+  if(agOk)initAg(cl,sv,hp,wa,ig);
 }catch{m.innerHTML='<p style="text-align:center;padding:40px">No se pudo cargar la página. Recarga e intenta de nuevo.</p>'}})();
 </script></body></html>
