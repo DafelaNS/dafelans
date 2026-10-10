@@ -78,7 +78,7 @@ async function initAg(cl,sv,hp,wa,ig){const root=$('#ag-root');
  const d0=new Date();d0.setHours(0,0,0,0);
  const addD=(x,n)=>{const r=new Date(x);r.setDate(r.getDate()+n);return r};
  const dmax=addD(d0,89),cur={sv:null,mode:'dia',day:d0};
- const contacto=`<p class="hint">Para apartar tu horario, escríbenos:</p>${wa?`<a class="btn" href="https://wa.me/${wa}">WhatsApp</a>`:''}${ig?`<a class="btn" href="https://ig.me/m/${encodeURIComponent(ig)}">Instagram</a>`:''}`;
+ const contacto=`<p class="hint">El horario es de inicio; si tu servicio es largo, te confirmamos por mensaje si alcanza. Para apartar, escríbenos:</p>${wa?`<a class="btn" href="https://wa.me/${wa}">WhatsApp</a>`:''}${ig?`<a class="btn" href="https://ig.me/m/${encodeURIComponent(ig)}">Instagram</a>`:''}`;
  const{data,error}=await cl.rpc('ocupado',{desde:d0.toISOString(),hasta:addD(dmax,1).toISOString()});
  if(error){root.innerHTML=contacto;return}
  const busy=(data||[]).map(x=>({i:+new Date(x.inicio),f:+new Date(x.inicio)+(x.duracion_min||60)*6e4}));
@@ -87,7 +87,7 @@ async function initAg(cl,sv,hp,wa,ig){const root=$('#ag-root');
   const[h1,m1]=w[0].split(':').map(Number),[h2,m2]=w[1].split(':').map(Number),o=new Date(day),c=new Date(day);
   o.setHours(h1,m1,0,0);c.setHours(h2,m2,0,0);
   const du=(cur.sv?.duracion_min||60)*6e4,st=(hp.intervalo||30)*6e4,min=Date.now()+(hp.anticipacion??3)*36e5,out=[];
-  for(let t=+o;t+du<=+c;t+=st){if(t<min)continue;if(busy.some(b=>t<b.f&&t+du>b.i))continue;out.push(t)}return out};
+  for(let t=+o;t<+c;t+=st){if(t<min)continue;if(busy.some(b=>t<b.f&&t+du>b.i))continue;out.push(t)}return out};
  const dl=[...Array(90)].map((_,i)=>addD(d0,i));
  cur.day=dl.find(x=>slots(x).length)||dl.find(abierto)||d0;
  const ws=x=>addD(x,-((x.getDay()+6)%7));
