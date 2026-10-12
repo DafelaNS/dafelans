@@ -1,30 +1,35 @@
 <!doctype html>
 <html lang="es"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Dafela Nail Studio</title>
-<meta name="theme-color" content="#2b2724">
-<meta name="description" content="Dafela Nail Studio: servicios, trabajos, promociones, ubicación y agenda de citas.">
+<title>Dafela Nail House</title>
+<meta name="theme-color" content="#3b2216">
+<meta name="description" content="Dafela Nail House: servicios, trabajos, promociones, ubicación y agenda de citas.">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Jost:wght@300;400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Jost:wght@300;400;500&family=Pinyon+Script&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#efe9e1;--card:#e3dacd;--ink:#2b2724;--mut:#6b5f54;--line:#c9bcab}
+:root{--bg:#f4eee5;--card:#e9dfd0;--ink:#3b2216;--choc:#4e2f1f;--mut:#6e5a49;--line:#d3c3ae;--gold:#b08a4e}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:300 16px/1.6 Jost,sans-serif;padding-bottom:env(safe-area-inset-bottom)}
 header{text-align:center;padding:calc(46px + env(safe-area-inset-top)) 20px 28px}
-h1{font:400 clamp(3.4rem,17vw,6rem)/1 'Cormorant Garamond',serif;letter-spacing:.06em;margin:0}
-.sub{letter-spacing:.55em;text-indent:.55em;font-size:.72rem;margin:10px 0 0}
+h1{font:400 clamp(3.4rem,17vw,6rem)/1 'Cormorant Garamond',serif;letter-spacing:.06em;margin:0;color:var(--choc)}
+.sub{letter-spacing:.55em;text-indent:.55em;font-size:.78rem;margin:10px 0 0;color:var(--choc)}
 .lema{font:italic 1.25rem 'Cormorant Garamond',serif;color:var(--mut);margin:16px 0 0}
 nav{position:sticky;top:0;z-index:5;background:var(--bg);display:flex;gap:8px;overflow-x:auto;padding:10px 16px;border-block:1px solid var(--line);scrollbar-width:none}
 nav a{flex:none;color:var(--ink);text-decoration:none;border:1px solid var(--line);border-radius:99px;padding:6px 18px;font-size:.92rem}
 main{max-width:720px;margin:auto;padding:0 18px 90px}
 section{padding-top:38px;scroll-margin-top:52px}
-h2{font:italic 400 2.1rem 'Cormorant Garamond',serif;margin:0 0 14px}
+h2{font:400 2.8rem/1.1 'Pinyon Script','Cormorant Garamond',serif;color:var(--choc);margin:0 0 14px}
 details{background:var(--card);border-radius:16px;margin-bottom:10px;padding:0 18px}
-summary{padding:15px 0;font:600 1.35rem 'Cormorant Garamond',serif;cursor:pointer}
+summary{padding:15px 0;font:600 1.4rem 'Cormorant Garamond',serif;color:var(--choc);cursor:pointer}
 .it{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
 .it small{color:var(--mut);white-space:nowrap;font-size:.9rem}
 .gal{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .gal img{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:10px}
+.bans{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:6px;scrollbar-width:none}
+.ban{flex:0 0 88%;margin:0;scroll-snap-align:center}
+.bans.one .ban{flex-basis:100%}
+.ban img{display:block;width:100%;height:auto;border-radius:18px;box-shadow:0 6px 18px #3b221626}
+.ban figcaption{color:var(--mut);font-size:.88rem;text-align:center;margin-top:8px}
 .promo{background:var(--card);border-radius:16px;padding:18px;margin-bottom:10px}
 .promo b{font:600 1.4rem 'Cormorant Garamond',serif}.promo p{margin:6px 0 0}.promo small{color:var(--mut)}
 iframe{width:100%;height:270px;border:0;border-radius:16px;margin-top:12px}
@@ -59,7 +64,7 @@ a:focus-visible,summary:focus-visible,button:focus-visible{outline:2px solid var
 .fab{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom));background:var(--ink);color:#fff;border-radius:99px;padding:12px 22px;text-decoration:none;box-shadow:0 4px 14px #0004;z-index:6}
 footer{text-align:center;color:var(--mut);padding:10px 20px 40px;font:italic 1.05rem 'Cormorant Garamond',serif}
 </style></head><body>
-<header><h1>DAFELA</h1><p class="sub">NAIL STUDIO</p><p class="lema" id="lema"></p></header>
+<header><h1>DAFELA</h1><p class="sub">NAIL HOUSE</p><p class="lema" id="lema"></p></header>
 <nav id="nav" aria-label="Secciones"></nav>
 <main id="m"><p style="text-align:center;padding:40px">Cargando…</p></main>
 <footer>Uñas auténticas para versiones reales de ti</footer>
@@ -123,8 +128,8 @@ async function initAg(cl,sv,hp,wa,ig){const root=$('#ag-root');
 
 (async()=>{const m=$('#m');try{
   const cl=supabase.createClient(U,K);
-  const[{data:d,error},{data:hp}]=await Promise.all([cl.rpc('catalogo'),cl.rpc('horario_publico')]);if(error)throw error;
-  const a=d.ajustes||{},sv=d.servicios||[],fo=d.fotos||[],pr=(d.promociones||[]).filter(p=>!p.vigente_hasta||p.vigente_hasta>=hoy),n=[];
+  const[{data:d,error},{data:hp},{data:pp,error:pe}]=await Promise.all([cl.rpc('catalogo'),cl.rpc('horario_publico'),cl.rpc('promos_publicas')]);if(error)throw error;
+  const a=d.ajustes||{},sv=d.servicios||[],fo=d.fotos||[],pr=((!pe&&Array.isArray(pp))?pp:(d.promociones||[])).filter(p=>!p.vigente_hasta||p.vigente_hasta>=hoy),n=[];
   const cats=[...new Set(sv.map(s=>s.categoria))];let h='';
   $('#lema').textContent=a.lema||'';
   if(cats.length){n.push(['sv','Servicios']);
@@ -132,7 +137,9 @@ async function initAg(cl,sv,hp,wa,ig){const root=$('#ag-root');
   if(fo.length){n.push(['tr','Trabajos']);
     h+=`<section id="tr"><h2>Nuestros trabajos</h2><div class="gal">${fo.map(f=>`<img loading="lazy" src="${e(f.url)}" alt="${e(f.titulo||'Trabajo de Dafela')}">`).join('')}</div></section>`}
   if(pr.length){n.push(['pr','Promociones']);
-    h+=`<section id="pr"><h2>Promociones</h2>${pr.map(p=>`<div class="promo"><b>${e(p.titulo)}</b>${p.descripcion?`<p>${e(p.descripcion)}</p>`:''}${p.vigente_hasta?`<small>Válida hasta ${e(new Date(p.vigente_hasta+'T00:00:00').toLocaleDateString('es-MX',{day:'numeric',month:'long'}))}</small>`:''}</div>`).join('')}</section>`}
+    const vh=p=>p.vigente_hasta?'Válida hasta '+new Date(p.vigente_hasta+'T00:00:00').toLocaleDateString('es-MX',{day:'numeric',month:'long'}):'';
+    const im=pr.filter(p=>p.imagen_url),tx=pr.filter(p=>!p.imagen_url);
+    h+=`<section id="pr"><h2>Promociones</h2>${im.length?`<div class="bans${im.length==1?' one':''}">${im.map(p=>`<figure class="ban"><img loading="lazy" src="${e(p.imagen_url)}" alt="${e(p.titulo||'Promoción')}">${vh(p)?`<figcaption>${e(vh(p))}</figcaption>`:''}</figure>`).join('')}</div>${im.length>1?'<p class="hint" style="text-align:center">Desliza para ver más promociones</p>':''}`:''}${tx.map(p=>`<div class="promo"><b>${e(p.titulo)}</b>${p.descripcion?`<p>${e(p.descripcion)}</p>`:''}${vh(p)?`<small>${e(vh(p))}</small>`:''}</div>`).join('')}</section>`}
   const wa=(a.whatsapp||'').replace(/\D/g,''),ig0=(a.instagram||'').trim();
   const agOk=!!((wa||ig0)&&sv.length&&hp?.semana&&Object.values(hp.semana).some(v=>v&&v[0]&&v[1]));
   if(agOk){n.push(['ag','Horarios']);h+=`<section id="ag"><h2>Horarios disponibles</h2><div class="ag" id="ag-root"></div></section>`}
