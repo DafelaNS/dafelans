@@ -198,6 +198,7 @@ async function cobro(id,p,nm){const{data:ya}=await sb.rpc('cita_cobrada',{p_cita
  <div class="dsc">${[5,10,15,20].map(x=>`<button type="button" data-pc="${x}">${x}%</button>`).join('')}<button type="button" data-pc="0">Sin</button></div>
  <div class="tot" id="ctot"></div>
  <label>Pago<select name="metodo">${MET.map(o=>`<option>${o}</option>`).join('')}</select></label>
+ <label>Propina (opcional) · ${p.atiende?'para '+e(p.atiende):'sin manicurista asignada'}<input name="prop" type="number" step="any" min="0" placeholder="0"></label>
  <div class="bt"><button type="button" id="cx">Omitir</button><button class="ok">Guardar cobro</button></div></form>`;
  d.showModal();
  const Lp=()=>Number($('#cf [name=lista]').value||0),Dc=()=>Math.min(Number($('#cf [name=desc]').value||0),Lp());
@@ -208,6 +209,8 @@ async function cobro(id,p,nm){const{data:ya}=await sb.rpc('cita_cobrada',{p_cita
  $('#cf').onsubmit=async ev=>{ev.preventDefault();const f=new FormData(ev.target),lista=Lp(),desc=Dc(),total=Math.max(0,lista-desc);
   const{data:ok,error}=await sb.rpc('registrar_cobro',{p_cita:String(id),p_fecha:ymd(new Date(p.fecha_hora)),p_concepto:I.n+(nm?' · '+nm:''),p_monto:total,p_metodo:f.get('metodo'),p_atiende:p.atiende||null,p_descuento:desc,p_lista:lista});
   if(error)return alert(error.message);
+  const pr=Number(f.get('prop')||0);
+  if(pr>0&&ok!==false){const{error:e2}=await sb.from('propinas').insert({fecha:ymd(new Date(p.fecha_hora)),cita_id:String(id),atiende:p.atiende||null,monto:pr});if(e2)alert('El cobro se guardó, pero la propina no: '+e2.message)}
   await sb.from('citas').update({estado:'realizada'}).eq('id',id);
   d.close();if(ok===false)alert('Esa cita ya estaba cobrada.');load()};return true}
 
@@ -284,8 +287,6 @@ async function pagoSemanal(){
  <label>Fecha de pago (cuenta lo cobrado en los 7 días hasta esa fecha)<input name="fecha" type="date" required value="${ymd(f)}"></label>
  <div style="margin-top:10px">${lista.map(x=>`<div class="ln"><span><input type="checkbox" name="fx" value="${x.id}" checked> ${e(x.concepto)}<small>${e(x.categoria)}</small></span><input class="pi" type="number" step="any" min="0" name="m${x.id}" value="${x.monto}"></div>`).join('')||'<p style="color:var(--mut)">No tienes gastos fijos semanales (sueldos). Puedes crearlos en Fijos con frecuencia Semanal. Abajo se calculan comisiones y propinas.</p>'}</div>
  <label>Comisión (%) sobre lo cobrado<input name="pct" type="number" step="any" min="0" value="${PCT}"></label>
- <label>Propinas de la semana (total)<input name="tip" type="number" step="any" min="0" placeholder="0"></label>
- <label>Repartir las propinas<select name="rep"><option value="i">Por igual entre las manicuristas</option><option value="v">Según lo cobrado a cada una</option></select></label>
  <div id="pp"><div class="msg">Calculando lo cobrado…</div></div>
  <div class="tot" id="gtot"></div>
  <div class="bt"><button type="button" id="cx">Cancelar</button><button class="ok">Registrar en Gastos</button></div></form>`;
@@ -294,28 +295,26 @@ async function pagoSemanal(){
  let P=[];
  const on=i=>F().querySelector('[data-on="'+i+'"]').checked,ci=(k,i)=>F().querySelector('[data-'+k+'="'+i+'"]');
  const fillCom=()=>P.forEach((g,i)=>{const x=ci('c',i);x.disabled=!on(i);x.value=on(i)?(cents(g.v*val('pct')/100)||''):''});
- const fillTip=()=>{const idx=P.map((g,i)=>i).filter(on),T=val('tip'),v=F().elements.rep.value=='v',base=idx.reduce((s,i)=>s+P[i].v,0);let rest=T;
-  P.forEach((g,i)=>{const x=ci('p',i);x.disabled=!on(i);if(!on(i)){x.value='';return}
-   const last=i==idx[idx.length-1],sh=v?(base?g.v/base:0):1/idx.length,m=last?Math.max(0,cents(rest)):cents(T*sh);rest-=m;x.value=m||''})};
+ const fillTip=()=>P.forEach((g,i)=>{const x=ci('p',i);x.disabled=!on(i);x.value=on(i)?(cents(g.t)||''):''});
  const tot=()=>{let t=0;lista.forEach(x=>{if(F().querySelector('[name=fx][value="'+x.id+'"]').checked)t+=val('m'+x.id)});
   P.forEach((g,i)=>{if(on(i))t+=Number(ci('c',i).value||0)+Number(ci('p',i).value||0)});$('#gtot').textContent='Total del pago: '+money(t)};
  const ventas=async()=>{const fe=F().elements.fecha.value;if(!fe)return;
   const a=new Date(fe+'T00:00:00');a.setDate(a.getDate()-6);const ini=ymd(a);
-  const{data,error}=await sb.from('ingresos').select('monto,atiende').gte('fecha',ini).lte('fecha',fe);
-  if(error){$('#pp').innerHTML='<p class="neg">'+e(error.message)+'</p>';return}
-  const L=data||[],sin=sum(L.filter(x=>!norm(x.atiende).trim()));P=porPersona(L);
-  $('#pp').innerHTML=`<div class="msg">Cobrado del ${e(ini)} al ${e(fe)}. Quita la palomita a quien no deba cobrar.${sin>0?` Hay ${money(sin)} cobrados sin “Atiende”: no cuentan para ninguna comisión.`:''}</div>`
+  const[r1,r2]=await Promise.all([sb.from('ingresos').select('monto,atiende').gte('fecha',ini).lte('fecha',fe),sb.from('propinas').select('monto,atiende').gte('fecha',ini).lte('fecha',fe)]);
+  if(r1.error){$('#pp').innerHTML='<p class="neg">'+e(r1.error.message)+'</p>';return}
+  const L=r1.data||[],TP=r2.error?[]:(r2.data||[]),sin=sum(L.filter(x=>!norm(x.atiende).trim())),sinT=sum(TP.filter(x=>!norm(x.atiende).trim()));P=porPersona(L);P.forEach(g=>g.t=0);
+  TP.forEach(x=>{const n=String(x.atiende||'').trim(),k=norm(n);if(!k)return;let g=P.find(z=>norm(z.n)==k);if(!g){g={n,v:0,c:0,t:0};P.push(g)}g.t+=Number(x.monto||0)});
+  $('#pp').innerHTML=`<div class="msg">Cobrado del ${e(ini)} al ${e(fe)}. Quita la palomita a quien no deba cobrar.${sin>0?` Hay ${money(sin)} cobrados sin “Atiende”: no cuentan para ninguna comisión.`:''}${sinT>0?` Hay ${money(sinT)} de propinas sin manicurista: no se asignan a nadie.`:''}${r2.error?` No se pudieron leer las propinas (¿ya existe la tabla propinas?).`:''}</div>`
   +(P.map((g,i)=>`<div class="msg"><label style="margin:0;color:var(--ink)"><input type="checkbox" data-on="${i}" checked> <b>${e(g.n)}</b></label><small style="color:var(--mut);display:block">Cobrado ${money(g.v)} · ${g.c} servicio${g.c>1?'s':''}</small>
    <div class="ln" style="border:0"><span>Comisión</span><input class="pi" type="number" step="any" min="0" data-c="${i}"></div>
-   <div class="ln" style="border:0"><span>Propina</span><input class="pi" type="number" step="any" min="0" data-p="${i}"></div></div>`).join('')||'<p style="color:var(--mut)">No hay servicios cobrados con “Atiende” en esos días.</p>');
+   <div class="ln" style="border:0"><span>Propinas de sus servicios</span><input class="pi" type="number" step="any" min="0" data-p="${i}"></div></div>`).join('')||'<p style="color:var(--mut)">No hay servicios cobrados con “Atiende” en esos días.</p>');
   fillCom();fillTip();tot()};
  ventas();tot();
  F().oninput=ev=>{const n=ev.target.name;
   if(n=='fecha')ventas();
   else if(n=='pct'){PCT=val('pct');fillCom()}
-  else if(n=='tip')fillTip();
   tot()};
- F().onchange=ev=>{const t=ev.target;if(t.name=='rep'||t.dataset.on!==undefined){fillTip();if(t.dataset.on!==undefined)fillCom();tot()}};
+ F().onchange=ev=>{const t=ev.target;if(t.dataset.on!==undefined){fillTip();fillCom();tot()}};
  $('#cx').onclick=()=>d.close();
  F().onsubmit=async ev=>{ev.preventDefault();const b=ev.submitter;b.disabled=true;try{
   const fe=F().elements.fecha.value,ins=[];
