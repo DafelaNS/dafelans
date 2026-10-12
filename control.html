@@ -58,6 +58,33 @@ label input:not([type=checkbox]),label select,label textarea{display:block;width
 .tt{margin-top:8px;font-weight:500;color:var(--ink)}
 .dsc{display:flex;gap:6px;margin-top:8px}
 .dsc button{flex:1;padding:8px 0;border-radius:99px;border:1px solid var(--line);background:none}
+.vt{display:flex;gap:6px;margin:0 0 10px}
+.vt button{flex:1;border:1px solid var(--line);background:none;border-radius:99px;padding:8px}
+.vt button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.an{display:flex;justify-content:space-between;align-items:center;gap:6px;margin:8px 0}
+.an b{font-weight:500;text-align:center;flex:1}.an b::first-letter{text-transform:uppercase}
+.an button{flex:none;width:38px;height:38px;border:1px solid var(--line);background:#fff;border-radius:99px;font-size:1.2rem;line-height:1}
+.an .hy{width:auto;padding:0 14px;font-size:.9rem}
+.gw{overflow:auto;border:1px solid var(--line);border-radius:14px;background:#fff;max-height:72vh}
+.gh,.gb{display:grid}
+.gh{position:sticky;top:0;z-index:4;background:var(--bg);border-bottom:1px solid var(--line)}
+.gh>div{padding:8px 4px;text-align:center;font-weight:500;font-size:.85rem;border-left:1px solid var(--line);line-height:1.25}
+.gh>div:first-child,.gt{position:sticky;left:0;z-index:3;background:var(--bg);border-left:0}
+.gt{border-right:1px solid var(--line)}
+.gt span{position:absolute;right:4px;font-size:.68rem;color:var(--mut);transform:translateY(-50%);background:var(--bg);padding:0 2px}
+.gt span:first-child{transform:none}
+.gc{position:relative;border-left:1px solid var(--line);cursor:pointer;background-image:linear-gradient(#d3c3ae 1px,transparent 1px),linear-gradient(#eee5d7 1px,transparent 1px);background-size:100% var(--hh),100% calc(var(--hh)/2)}
+.ev{position:absolute;border-radius:8px;padding:3px 5px;font-size:.74rem;line-height:1.2;overflow:hidden;border-left:4px solid var(--c,#b08a4e);background:#f3dfd0;color:var(--ink);cursor:pointer;box-shadow:0 1px 3px #3b221622;z-index:1}
+.ev b{display:block;font-weight:600}.ev span{display:block;color:var(--mut)}
+.ev.confirmada{background:#d5e6d3}.ev.realizada{background:#e4ded3;opacity:.85}
+.nl{position:absolute;left:0;right:0;height:2px;background:#d33;z-index:2;pointer-events:none}
+.lg{display:inline-block;width:12px;height:12px;border-radius:3px;margin:0 3px 0 6px;vertical-align:-2px;border:1px solid var(--line)}
+.mg{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.mh{text-align:center;font-size:.75rem;color:var(--mut)}
+.mc{min-height:84px;border:1px solid var(--line);background:#fff;border-radius:10px;padding:4px 3px;text-align:left;display:flex;flex-direction:column;gap:2px;overflow:hidden}
+.mc.hoy{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.mc b{font-weight:600;font-size:.85rem}
+.mc small{display:block;font-size:.6rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-left:2px;background:var(--card);border-radius:3px}
 @media(min-width:640px){.k{grid-template-columns:repeat(4,1fr)}}
 </style></head><body><div class="w" id="app"></div><dialog id="dlg"></dialog>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
@@ -79,7 +106,7 @@ const MES=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','di
 const ml=k=>MES[+k.slice(5,7)-1]+' '+k.slice(2,4);
 const DN=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'],ORD=[1,2,3,4,5,6,0];
 const PAL=['#4e2f1f','#b08a4e','#8a6a4f','#d3c3ae','#7d5f2d','#a07860','#5d4636','#c9a56a'];
-let role,tab='citas',rows=[],sv=[],per='Mes',fp='Este mes',dp='6 meses',sm=null,ch=[],DD=null;
+let role,tab='citas',rows=[],sv=[],per='Mes',fp='Este mes',dp='6 meses',sm=null,ch=[],DD=null,VA=false,am='dia',ad=new Date(),NM=[],AJ=null,AG=[],PCT=15;ad.setHours(0,0,0,0);
 const CAT=['Esmaltes','Limas','Acrílico','Decoración','Otros'],MET=['Efectivo','Transferencia','Tarjeta'],GT=['Renta','Sueldo','Comisiones','Propinas','Material','Servicios','Otro'];
 const T={
 citas:{n:'Citas',cobrar:1,search:1,sel:'*,clientas(nombre,telefono),servicios(nombre)',ord:'fecha_hora',asc:1,pc:'fecha_hora',fut:1,
@@ -132,16 +159,18 @@ function rng(c){if(per=='Todo')return;const d=new Date();d.setHours(0,0,0,0);con
  else if(c.fut)b.setDate(b.getDate()+30);else{a.setDate(1);b.setMonth(a.getMonth()+1,1)}
  const f=x=>c.pc=='fecha'?x.toLocaleDateString('sv'):x.toISOString();return[f(a),f(b)]}
 async function load(){const c=T[tab];
+ if(tab=='citas'&&VA)return vAgenda();
  if(c.view){draw();return c.view=='fin'?vFin():vDash()}
  let q=sb.from(c.tb||tab).select(c.sel||'*').order(c.ord||'id',{ascending:!!c.asc});
  if(c.pc){const r=rng(c);if(r)q=q.gte(c.pc,r[0]).lt(c.pc,r[1])}
  const{data,error}=await q;if(error)return alert(error.message);
  rows=c.one?[data?.[0]||{id:1}]:data||[];draw()}
-function draw(){const c=T[tab];
+function drawTabs(){const c=T[tab];
  $('#tabs').innerHTML=Object.entries(T).filter(([k,v])=>!v.only||v.only==role).map(([k,v])=>`<button data-t="${k}" class="${k==tab?'on':''}">${v.n}</button>`).join('');
- $('#new').hidden=!!(c.one||c.view);if(c.view)return;
+ $('#new').hidden=!!(c.one||c.view)}
+function draw(){const c=T[tab];drawTabs();if(c.view)return;
  const total=c.sum?rows.reduce((s,r)=>s+Number(r[c.sum]||0),0):0;
- $('#list').innerHTML=(c.pc?`<select id="per" class="o">${['Hoy','Semana','Mes','Todo'].map(x=>`<option${x==per?' selected':''}>${x}</option>`).join('')}</select>`:'')
+ $('#list').innerHTML=(tab=='citas'?vtog(0):'')+(c.pc?`<select id="per" class="o">${['Hoy','Semana','Mes','Todo'].map(x=>`<option${x==per?' selected':''}>${x}</option>`).join('')}</select>`:'')
  +(c.search?'<input id="q" type="search" placeholder="Buscar por nombre…" autocomplete="off">':'')
  +(c.extra?c.extra():'')
  +(c.sum?`<div class="tot">Total: ${money(total)}</div>`:'')
@@ -153,8 +182,8 @@ async function up(f,png){const b=await createImageBitmap(f),k=Math.min(1,1400/Ma
  const ty=png?'image/png':'image/jpeg',bl=await new Promise(r=>c.toBlob(r,ty,.85)),n=Date.now()+(png?'.png':'.jpg'),{error}=await sb.storage.from('trabajos').upload(n,bl,{contentType:ty});
  if(error)throw error;return sb.storage.from('trabajos').getPublicUrl(n).data.publicUrl}
 async function choque(p,id){const s=new Date(p.fecha_hora),d=(p.duracion_min||60)*6e4;
- const{data}=await sb.from('citas').select('id,fecha_hora,duracion_min').neq('estado','cancelada').gte('fecha_hora',new Date(+s-864e5).toISOString()).lt('fecha_hora',new Date(+s+864e5).toISOString());
- return(data||[]).some(x=>x.id!=id&&+s<+new Date(x.fecha_hora)+(x.duracion_min||60)*6e4&&+s+d>+new Date(x.fecha_hora))}
+ const{data}=await sb.from('citas').select('id,fecha_hora,duracion_min,atiende').neq('estado','cancelada').gte('fecha_hora',new Date(+s-864e5).toISOString()).lt('fecha_hora',new Date(+s+864e5).toISOString());
+ return(data||[]).some(x=>x.id!=id&&(!x.atiende||!p.atiende||norm(x.atiende)==norm(p.atiende))&&+s<+new Date(x.fecha_hora)+(x.duracion_min||60)*6e4&&+s+d>+new Date(x.fecha_hora))}
 const svIds=(ids,one)=>ids&&ids.length?ids.map(Number):one?[Number(one)]:[];
 const svInfo=(ids,one)=>{const L=svIds(ids,one).map(i=>sv.find(x=>x.id==i)).filter(Boolean);return{L,n:L.map(x=>x.nombre).join(' + ')||'Servicio',lista:L.reduce((s,x)=>s+Number(x.precio||0),0),min:L.reduce((s,x)=>s+Number(x.duracion_min||0),0)}};
 const svTxt=r=>{const i=svInfo(r.servicios_ids,r.servicio_id);return i.L.length?i.n:r.servicios?.nombre};
@@ -237,48 +266,139 @@ async function confirmar(c){const d=$('#dlg');
  $('#b-dl').onclick=dl;
  $('#b-sh').onclick=async()=>{if(navigator.canShare&&navigator.canShare({files:[file]})){try{await navigator.share({files:[file],text:msg})}catch{}}else dl()}}
 
+/* ---------- personas, comisión y propinas ---------- */
+function nmAdd(n){n=String(n||'').trim();if(n&&!NM.some(x=>norm(x)==norm(n))){NM.push(n);NM.sort((a,b)=>a.localeCompare(b,'es'))}}
+async function nmLoad(){const d=new Date();d.setDate(d.getDate()-90);
+ const{data}=await sb.from('citas').select('atiende').gte('fecha_hora',d.toISOString()).not('atiende','is',null);(data||[]).forEach(x=>nmAdd(x.atiende))}
+function porPersona(ing){const o={};ing.forEach(x=>{const n=String(x.atiende||'').trim(),k=norm(n);if(!k)return;const g=o[k]||(o[k]={n,v:0,c:0});g.v+=Number(x.monto||0);g.c++});return Object.values(o).sort((a,b)=>b.v-a.v)}
+const comSec=ing=>{const P=porPersona(ing);if(!P.length)return'';
+ return`<h4>Comisión por manicurista <small>(${PCT}% de lo cobrado)</small></h4>`+P.map(g=>`<div class="ln"><span>${e(g.n)}<small>${g.c} servicio${g.c>1?'s':''} · cobrado ${money(g.v)}</small></span><b>${money(Math.round(g.v*PCT)/100)}</b></div>`).join('')};
+
 async function pagoSemanal(){
  const{data:fx,error}=await sb.from('gastos_fijos').select('*').eq('activo',true).eq('frecuencia','Semanal');
  if(error)return alert(error.message);
  const lista=(fx||[]).filter(x=>x.frecuencia=='Semanal'),wd=DIAS[lista[0]?.dia_semana||'Sábado'];
  let f=new Date();f.setHours(0,0,0,0);while(f.getDay()!=wd)f.setDate(f.getDate()-1);
- const nom0=(lista[0]?String(lista[0].concepto).replace(/^sueldo( de)?\s+/i,'').trim():'')||'Eli',d=$('#dlg');
+ const d=$('#dlg');
  d.innerHTML=`<form id="pf"><h3>Pago semanal</h3>
- <label>Fecha de pago<input name="fecha" type="date" required value="${ymd(f)}"></label>
- <label>Persona<input name="nom" value="${e(nom0)}"></label>
- <div style="margin-top:10px">${lista.map(x=>`<div class="ln"><span><input type="checkbox" name="fx" value="${x.id}" checked> ${e(x.concepto)}<small>${e(x.categoria)}</small></span><input class="pi" type="number" step="any" min="0" name="m${x.id}" value="${x.monto}"></div>`).join('')||'<p style="color:var(--mut)">No tienes gastos fijos semanales. Crea uno en Fijos (Frecuencia: Semanal) para que aparezca aquí. Abajo puedes registrar comisiones y propinas.</p>'}</div>
- <div class="msg" id="vh">Calculando lo cobrado…</div>
- <label>Comisión (%) sobre lo cobrado en la semana (opcional)<input name="pct" type="number" step="any" min="0"></label>
- <label>Comisiones ($)<input name="com" type="number" step="any" min="0" placeholder="0"></label>
- <label>Propinas ($)<input name="pro" type="number" step="any" min="0" placeholder="0"></label>
- <div class="tot" id="ptot"></div>
+ <label>Fecha de pago (cuenta lo cobrado en los 7 días hasta esa fecha)<input name="fecha" type="date" required value="${ymd(f)}"></label>
+ <div style="margin-top:10px">${lista.map(x=>`<div class="ln"><span><input type="checkbox" name="fx" value="${x.id}" checked> ${e(x.concepto)}<small>${e(x.categoria)}</small></span><input class="pi" type="number" step="any" min="0" name="m${x.id}" value="${x.monto}"></div>`).join('')||'<p style="color:var(--mut)">No tienes gastos fijos semanales (sueldos). Puedes crearlos en Fijos con frecuencia Semanal. Abajo se calculan comisiones y propinas.</p>'}</div>
+ <label>Comisión (%) sobre lo cobrado<input name="pct" type="number" step="any" min="0" value="${PCT}"></label>
+ <label>Propinas de la semana (total)<input name="tip" type="number" step="any" min="0" placeholder="0"></label>
+ <label>Repartir las propinas<select name="rep"><option value="i">Por igual entre las manicuristas</option><option value="v">Según lo cobrado a cada una</option></select></label>
+ <div id="pp"><div class="msg">Calculando lo cobrado…</div></div>
+ <div class="tot" id="gtot"></div>
  <div class="bt"><button type="button" id="cx">Cancelar</button><button class="ok">Registrar en Gastos</button></div></form>`;
  d.showModal();
- const F=()=>$('#pf'),val=n=>Number(F().elements[n].value||0);
- let V=0;
- const tot=()=>{let t=val('com')+val('pro');lista.forEach(x=>{if(F().querySelector('[name=fx][value="'+x.id+'"]').checked)t+=val('m'+x.id)});$('#ptot').textContent='Total del pago: '+money(t)};
- const ventas=async()=>{const fe=F().elements.fecha.value,nm=norm(F().elements.nom.value.trim());if(!fe){return}
+ const F=()=>$('#pf'),val=n=>Number(F().elements[n].value||0),cents=x=>Math.round(x*100)/100;
+ let P=[];
+ const on=i=>F().querySelector('[data-on="'+i+'"]').checked,ci=(k,i)=>F().querySelector('[data-'+k+'="'+i+'"]');
+ const fillCom=()=>P.forEach((g,i)=>{const x=ci('c',i);x.disabled=!on(i);x.value=on(i)?(cents(g.v*val('pct')/100)||''):''});
+ const fillTip=()=>{const idx=P.map((g,i)=>i).filter(on),T=val('tip'),v=F().elements.rep.value=='v',base=idx.reduce((s,i)=>s+P[i].v,0);let rest=T;
+  P.forEach((g,i)=>{const x=ci('p',i);x.disabled=!on(i);if(!on(i)){x.value='';return}
+   const last=i==idx[idx.length-1],sh=v?(base?g.v/base:0):1/idx.length,m=last?Math.max(0,cents(rest)):cents(T*sh);rest-=m;x.value=m||''})};
+ const tot=()=>{let t=0;lista.forEach(x=>{if(F().querySelector('[name=fx][value="'+x.id+'"]').checked)t+=val('m'+x.id)});
+  P.forEach((g,i)=>{if(on(i))t+=Number(ci('c',i).value||0)+Number(ci('p',i).value||0)});$('#gtot').textContent='Total del pago: '+money(t)};
+ const ventas=async()=>{const fe=F().elements.fecha.value;if(!fe)return;
   const a=new Date(fe+'T00:00:00');a.setDate(a.getDate()-6);const ini=ymd(a);
-  const{data}=await sb.from('ingresos').select('monto,atiende').gte('fecha',ini).lte('fecha',fe);
-  V=(data||[]).filter(x=>nm&&norm(x.atiende).includes(nm)).reduce((s,x)=>s+Number(x.monto||0),0);
-  $('#vh').textContent='Cobrado del '+ini+' al '+fe+(nm?' en servicios de '+F().elements.nom.value.trim():'')+': '+money(V)};
+  const{data,error}=await sb.from('ingresos').select('monto,atiende').gte('fecha',ini).lte('fecha',fe);
+  if(error){$('#pp').innerHTML='<p class="neg">'+e(error.message)+'</p>';return}
+  const L=data||[],sin=sum(L.filter(x=>!norm(x.atiende).trim()));P=porPersona(L);
+  $('#pp').innerHTML=`<div class="msg">Cobrado del ${e(ini)} al ${e(fe)}. Quita la palomita a quien no deba cobrar.${sin>0?` Hay ${money(sin)} cobrados sin “Atiende”: no cuentan para ninguna comisión.`:''}</div>`
+  +(P.map((g,i)=>`<div class="msg"><label style="margin:0;color:var(--ink)"><input type="checkbox" data-on="${i}" checked> <b>${e(g.n)}</b></label><small style="color:var(--mut);display:block">Cobrado ${money(g.v)} · ${g.c} servicio${g.c>1?'s':''}</small>
+   <div class="ln" style="border:0"><span>Comisión</span><input class="pi" type="number" step="any" min="0" data-c="${i}"></div>
+   <div class="ln" style="border:0"><span>Propina</span><input class="pi" type="number" step="any" min="0" data-p="${i}"></div></div>`).join('')||'<p style="color:var(--mut)">No hay servicios cobrados con “Atiende” en esos días.</p>');
+  fillCom();fillTip();tot()};
  ventas();tot();
  F().oninput=ev=>{const n=ev.target.name;
-  if(n=='fecha'||n=='nom')ventas();
-  if(n=='pct'){F().elements.com.value=val('pct')?Math.round(V*val('pct'))/100:''}
+  if(n=='fecha')ventas();
+  else if(n=='pct'){PCT=val('pct');fillCom()}
+  else if(n=='tip')fillTip();
   tot()};
+ F().onchange=ev=>{const t=ev.target;if(t.name=='rep'||t.dataset.on!==undefined){fillTip();if(t.dataset.on!==undefined)fillCom();tot()}};
  $('#cx').onclick=()=>d.close();
  F().onsubmit=async ev=>{ev.preventDefault();const b=ev.submitter;b.disabled=true;try{
-  const fe=F().elements.fecha.value,nom=F().elements.nom.value.trim()||'Eli',ins=[];
+  const fe=F().elements.fecha.value,ins=[];
   const ids=lista.filter(x=>F().querySelector('[name=fx][value="'+x.id+'"]').checked).map(x=>x.id);
   let ya=new Set();
   if(ids.length){const{data}=await sb.from('gastos').select('fijo_id').eq('fecha',fe).in('fijo_id',ids);ya=new Set((data||[]).map(x=>String(x.fijo_id)))}
   lista.filter(x=>ids.includes(x.id)&&!ya.has(String(x.id))).forEach(x=>ins.push({fecha:fe,categoria:x.categoria,concepto:x.concepto,monto:val('m'+x.id),fijo_id:x.id}));
-  if(val('com')>0)ins.push({fecha:fe,categoria:'Comisiones',concepto:'Comisiones '+nom,monto:val('com')});
-  if(val('pro')>0)ins.push({fecha:fe,categoria:'Propinas',concepto:'Propinas '+nom,monto:val('pro')});
-  if(!ins.length){b.disabled=false;return alert(ya.size?'El sueldo de esa fecha ya estaba registrado. Agrega comisiones o propinas si quieres registrarlas.':'No hay nada que registrar.')}
+  const{data:ex}=await sb.from('gastos').select('categoria,concepto').eq('fecha',fe).in('categoria',['Comisiones','Propinas']);
+  const hay=new Set((ex||[]).map(x=>x.categoria+'|'+x.concepto));let omit=0;
+  P.forEach((g,i)=>{if(!on(i))return;
+   [['Comisiones',Number(ci('c',i).value||0)],['Propinas',Number(ci('p',i).value||0)]].forEach(([cat,m])=>{if(m<=0)return;const o={fecha:fe,categoria:cat,concepto:cat+' '+g.n,monto:m};hay.has(cat+'|'+o.concepto)?omit++:ins.push(o)})});
+  if(!ins.length){b.disabled=false;return alert(ya.size||omit?'Eso ya estaba registrado en esa fecha. Cambia la fecha o los montos si quieres registrar algo más.':'No hay nada que registrar.')}
   const{error}=await sb.from('gastos').insert(ins);if(error)throw error;
   d.close();tab='gastos';load()}catch(x){alert(x.message)}b.disabled=false}}
+
+/* ---------- agenda (día / semana / mes) ---------- */
+const addD=(x,n)=>{const r=new Date(x);r.setDate(r.getDate()+n);return r};
+const wsm=x=>addD(x,-((x.getDay()+6)%7)),HH=64;
+let agTk=0;
+const vtog=on=>`<div class="vt"><button data-vv="lista"${on?'':' class="on"'}>Lista</button><button data-vv="agenda"${on?' class="on"':''}>Agenda</button></div>`;
+const colorOf=n=>{const i=NM.findIndex(x=>norm(x)==norm(n));return PAL[(i<0?0:i)%PAL.length]};
+const t12h=h=>(h%12||12)+(h<12||h==24?' am':' pm');
+function agRango(days,cs){const H=(AJ&&AJ.horario_semanal)||{};let a=1e9,b=-1;
+ const p=s=>{const[h,m]=s.split(':').map(Number);return h*60+m};
+ days.forEach(d=>{const w=H[d.getDay()];if(w&&w[0]&&w[1]){a=Math.min(a,p(w[0]));b=Math.max(b,p(w[1]))}});
+ if(b<0){a=9*60;b=20*60}
+ cs.forEach(c=>{const f=new Date(c.fecha_hora),s=f.getHours()*60+f.getMinutes();a=Math.min(a,s);b=Math.max(b,s+(c.duracion_min||60))});
+ return[Math.floor(a/60)*60,Math.min(24*60,Math.ceil(b/60)*60)]}
+function lanes(L){L.sort((x,y)=>x.s-y.s||y.e-x.e);const gs=[];let cur=[],ce=-1;
+ for(const x of L){if(cur.length&&x.s>=ce){gs.push(cur);cur=[];ce=-1}cur.push(x);ce=Math.max(ce,x.e)}
+ if(cur.length)gs.push(cur);
+ gs.forEach(g=>{const ln=[];g.forEach(x=>{let i=ln.findIndex(z=>z<=x.s);if(i<0){i=ln.length;ln.push(0)}ln[i]=x.e;x.l=i});g.forEach(x=>x.n=ln.length)})}
+function agCol(items,S,E,attrs,hoy,quien){
+ const L=items.map(c=>{const f=new Date(c.fecha_hora),s=f.getHours()*60+f.getMinutes();return{c,f,s,e:Math.min(E,s+(c.duracion_min||60))}});lanes(L);
+ const ev=L.map(x=>{const c=x.c,h=Math.max(20,(x.e-x.s)*HH/60-2);
+  return`<div class="ev ${e(c.estado||'')}" data-evi="${AG.indexOf(c)}" style="top:${(x.s-S)*HH/60}px;height:${h}px;left:calc(${x.l/x.n*100}% + 1px);width:calc(${100/x.n}% - 3px);--c:${colorOf(c.atiende)}"><b>${hr(x.f)} ${e(c.clientas?.nombre||'Sin nombre')}</b><span>${e(svTxt(c)||'')}${quien&&c.atiende?' · '+e(c.atiende):''}</span></div>`}).join('');
+ const n=new Date(),m=n.getHours()*60+n.getMinutes(),nl=hoy&&m>=S&&m<=E?`<i class="nl" style="top:${(m-S)*HH/60}px"></i>`:'';
+ return`<div class="gc" ${attrs} style="height:${(E-S)*HH/60}px">${ev}${nl}</div>`}
+function agGrid(W,S,E,heads,cols){const mw=44+heads.length*W,tpl=`grid-template-columns:44px repeat(${heads.length},minmax(${W}px,1fr));min-width:${mw}px`;
+ let hrs='';for(let q=S;q<E;q+=60)hrs+=`<span style="top:${(q-S)*HH/60}px">${t12h(q/60)}</span>`;
+ return`<div class="gw"><div class="gh" style="${tpl}"><div></div>${heads.join('')}</div><div class="gb" style="${tpl};--hh:${HH}px"><div class="gt" style="height:${(E-S)*HH/60}px">${hrs}</div>${cols.join('')}</div></div>`}
+async function vAgenda(){const my=++agTk,L=$('#list');drawTabs();
+ const x=ad,m=am;let a,b;
+ if(m=='dia'){a=new Date(x);b=addD(a,1)}else if(m=='semana'){a=wsm(x);b=addD(a,7)}else{a=new Date(x.getFullYear(),x.getMonth(),1);b=new Date(x.getFullYear(),x.getMonth()+1,1)}
+ const[r,aj]=await Promise.all([sb.from('citas').select(T.citas.sel).or('estado.is.null,estado.neq.cancelada').gte('fecha_hora',a.toISOString()).lt('fecha_hora',b.toISOString()).order('fecha_hora'),
+  AJ?Promise.resolve({data:AJ}):sb.from('ajustes').select('horario_semanal,intervalo_min').eq('id',1).maybeSingle()]);
+ if(my!==agTk)return;
+ if(r.error)return alert(r.error.message);
+ AJ=aj.data||{};AG=r.data||[];AG.forEach(c=>nmAdd(c.atiende));
+ const z=addD(a,6),ttl=m=='dia'?x.toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long'}):m=='semana'?`${a.getDate()} ${MES[a.getMonth()]} – ${z.getDate()} ${MES[z.getMonth()]}`:a.toLocaleDateString('es-MX',{month:'long',year:'numeric'});
+ let body;
+ if(m=='dia'){const key=c=>norm((c.atiende||'').trim());
+  let cols=NM.map(n=>({k:norm(n),n}));
+  if(AG.some(c=>!key(c)))cols.push({k:'',n:'Sin asignar'});
+  if(!cols.length)cols=[{k:'',n:'Citas'}];
+  const[S,E]=agRango([a],AG);
+  body=agGrid(150,S,E,cols.map(c=>`<div>${e(c.n)}</div>`),cols.map(c=>agCol(AG.filter(q=>key(q)==c.k),S,E,`data-d="${+a}" data-s="${S}" data-who="${e(c.k?c.n:'')}"`,ymd(a)==today,false)))}
+ else if(m=='semana'){const days=[...Array(7)].map((_,i)=>addD(a,i)),[S,E]=agRango(days,AG);
+  body=agGrid(130,S,E,days.map(dd=>`<div data-gd="${+dd}" style="cursor:pointer${ymd(dd)==today?';color:#a33':''}">${DN[dd.getDay()]}<br>${dd.getDate()}</div>`),
+   days.map(dd=>{const k=ymd(dd);return agCol(AG.filter(q=>ymd(new Date(q.fecha_hora))==k),S,E,`data-d="${+dd}" data-s="${S}" data-who=""`,k==today,true)}))}
+ else{const y=x.getFullYear(),mo=x.getMonth(),nd=new Date(y,mo+1,0).getDate(),by={};
+  AG.forEach(c=>{const k=ymd(new Date(c.fecha_hora));(by[k]=by[k]||[]).push(c)});
+  let g=['L','M','M','J','V','S','D'].map(l=>`<span class="mh">${l}</span>`).join('')+'<span></span>'.repeat((new Date(y,mo,1).getDay()+6)%7);
+  for(let i=1;i<=nd;i++){const t=new Date(y,mo,i),k=ymd(t),Q=by[k]||[];
+   g+=`<button class="mc${k==today?' hoy':''}" data-gd="${+t}"><b>${i}</b>${Q.slice(0,3).map(c=>{const f=new Date(c.fecha_hora);return`<small style="border-left:3px solid ${colorOf(c.atiende)}">${e((c.clientas?.nombre||'').split(' ')[0])}</small>`}).join('')}${Q.length>3?`<small>+${Q.length-3} más</small>`:''}</button>`}
+  body=`<div class="mg">${g}</div><p class="hint">Toca un día para ver sus turnos.</p>`}
+ const leg=m=='mes'?'':`<p class="hint">Toca una cita para editarla o un espacio vacío para agendar. Fondo: <span class="lg" style="background:#f3dfd0"></span>pendiente <span class="lg" style="background:#d5e6d3"></span>confirmada <span class="lg" style="background:#e4ded3"></span>realizada. La barra de color a la izquierda es de cada manicurista.</p>`;
+ L.innerHTML=vtog(1)+`<div class="vt">${[['dia','Día'],['semana','Semana'],['mes','Mes']].map(([k,l])=>`<button data-am="${k}"${k==m?' class="on"':''}>${l}</button>`).join('')}</div>
+ <div class="an"><button class="hy" data-an="hoy">Hoy</button><button data-an="prev" aria-label="Anterior">‹</button><b>${e(ttl)}</b><button data-an="next" aria-label="Siguiente">›</button></div>`+body+leg}
+document.addEventListener('click',ev=>{const t=ev.target,b=t.closest('[data-vv],[data-am],[data-an],[data-gd],[data-evi]');
+ if(b){const D=b.dataset;
+  if(D.vv){VA=D.vv=='agenda';load()}
+  else if(D.am){am=D.am;vAgenda()}
+  else if(D.an){const y=ad.getFullYear(),mo=ad.getMonth();
+   if(D.an=='hoy'){ad=new Date();ad.setHours(0,0,0,0)}
+   else{const s=D.an=='prev'?-1:1;ad=am=='dia'?addD(ad,s):am=='semana'?addD(ad,7*s):new Date(y,mo+s,1)}
+   vAgenda()}
+  else if(D.gd){ad=new Date(+D.gd);am='dia';vAgenda()}
+  else if(D.evi!==undefined){const c=AG[+D.evi];if(c)form(c)}
+  return}
+ const c=t.closest('.gc[data-d]');
+ if(c){const st=Math.max(5,Number(AJ?.intervalo_min)||30),mi=+c.dataset.s+Math.floor((ev.clientY-c.getBoundingClientRect().top)/HH*60/st)*st,d=new Date(+c.dataset.d);
+  d.setHours(0,mi,0,0);form({fecha_hora:d.toISOString(),atiende:c.dataset.who||null})}});
 
 function form(r){const c=T[tab],v=r?{...r,...(c.pre?c.pre(r):{})}:{};
  const fld=([k,l,t])=>{const x=v[k],n=`name="${k}"`;let h;
@@ -291,8 +411,8 @@ function form(r){const c=T[tab],v=r?{...r,...(c.pre?c.pre(r):{})}:{};
   else if(t=='hs'){const w=x||{};return`<div style="margin-top:12px"><span style="font-size:.85rem;color:var(--mut)">${l}</span>${ORD.map(i=>`<div class="hs"><span>${DN[i]}</span><input type="time" name="${k}_${i}a" value="${e(w[i]?.[0]||'')}"><input type="time" name="${k}_${i}b" value="${e(w[i]?.[1]||'')}"></div>`).join('')}<small style="color:var(--mut)">Abre / cierra. Deja vacío el día que no abres.</small></div>`}
   else if(t=='file'||t=='fileo')h=`<input ${n} type="file" accept="image/*">${x?`<img src="${e(x)}" alt="" style="display:block;max-width:100%;max-height:130px;margin-top:8px;border-radius:8px">`:''}`;
   else if(t=='hid')return`<input type="hidden" ${n} value="${e(x??'')}">`;
-  else h=`<input ${n}${k=='clienta_nombre'?' autocomplete="off"':''} type="${t}"${t=='number'?' step="any"':''}${t=='datetime-local'||k=='monto'||k=='nombre'?' required':''} value="${e(t=='datetime-local'&&x?loc(x):x??(t=='date'?today:''))}">`;
-  return`<label>${l}${h}</label>`+(k=='clienta_nombre'?'<div id="clsug" class="sug"></div>':'')};
+  else h=`<input ${n}${k=='clienta_nombre'?' autocomplete="off"':''}${k=='atiende'?' list="atl" autocomplete="off"':''} type="${t}"${t=='number'?' step="any"':''}${t=='datetime-local'||k=='monto'||k=='nombre'?' required':''} value="${e(t=='datetime-local'&&x?loc(x):x??(t=='date'?today:''))}">`;
+  return`<label>${l}${h}</label>`+(k=='clienta_nombre'?'<div id="clsug" class="sug"></div>':'')+(k=='atiende'?'<datalist id="atl">'+NM.map(x=>'<option value="'+e(x)+'">').join('')+'</datalist>':'')};
  const d=$('#dlg');
  d.innerHTML=`<form id="f"><h3>${c.one?'Datos del salón':r?.id?'Editar':'Nuevo'}</h3>${c.f.map(fld).join('')}<div class="bt"><button type="button" id="cx">Cancelar</button>${r?.id&&!c.one?'<button type="button" class="rd" id="del">Eliminar</button>':''}<button class="ok">Guardar</button></div></form>`;
  d.showModal();$('#cx').onclick=()=>d.close();
@@ -319,7 +439,7 @@ function form(r){const c=T[tab],v=r?{...r,...(c.pre?c.pre(r):{})}:{};
   const nm=p.clienta_nombre?.trim(),tel=p.clienta_tel?.trim();
   if(c.post)p=await c.post(p);
   const tb=c.tb||tab,q=c.one?sb.from(tb).upsert({...p,id:1}):r?.id?sb.from(tb).update(p).eq('id',r.id):sb.from(tb).insert(p);
-  const{data:sd,error}=await q.select('id');if(error)throw error;d.close();
+  const{data:sd,error}=await q.select('id');if(error)throw error;d.close();if(tab=='ajustes')AJ=null;if(tab=='citas')nmAdd(p.atiende);
   const cid=r?.id||sd?.[0]?.id;
   if(tab=='citas'&&p.estado=='realizada'&&cid&&await cobro(cid,p,nm))return;
   load();if(tab=='citas'&&!r?.id&&tel&&p.estado!='cancelada')confirmar({nombre:nm,tel,fecha_hora:p.fecha_hora,ids:p.servicios_ids,dur:p.duracion_min})}catch(x){alert(x.message)}b.disabled=false}}
@@ -351,6 +471,7 @@ async function vFin(){const L=$('#list');L.innerHTML='<p style="text-align:cente
   <h4>Porcentajes del reparto <small>(una guía; ajústala a tu negocio y que sume 100)</small></h4>
   ${nom.map((n,i)=>`<div class="ln"><span>${n}</span><input class="pi" id="p${i}" type="number" step="any" value="${p[i]}"></div>`).join('')}
   <div class="ln"><span class="${Math.round(ps)==100?'pos':'neg'}">Suma: ${ps}%</span><button class="o" id="savepct">Guardar porcentajes</button></div>
+  ${comSec(d.ing)}
   <h4>Gastos por tipo</h4>${gc.map(([k,v])=>`<div class="ln"><span>${e(k)}<small>${G?(v/G*100).toFixed(0):0}% del gasto</small></span><b>${money(v)}</b></div>`).join('')||'<p style="color:var(--mut)">Sin gastos en este periodo.</p>'}
   <h4>Ingresos por forma de pago</h4>${im.map(([k,v])=>`<div class="ln"><span>${e(k)}<small>${I?(v/I*100).toFixed(0):0}% del ingreso</small></span><b>${money(v)}</b></div>`).join('')||'<p style="color:var(--mut)">Sin ingresos en este periodo.</p>'}`
  }catch(x){L.innerHTML='<p class="neg">No se pudo cargar: '+e(x.message)+'</p>'}}
@@ -392,7 +513,7 @@ function login(m=''){$('#app').innerHTML=`<div class="top"><h1>DAFELA · control
  $('#lg').onsubmit=async ev=>{ev.preventDefault();const f=new FormData(ev.target),{error}=await sb.auth.signInWithPassword({email:f.get('e').trim(),password:f.get('p')});error?login('Correo o contraseña incorrectos.'):start()}}
 async function start(){const{data:{session}}=await sb.auth.getSession();if(!session)return login();
  const{data:r}=await sb.rpc('mi_rol');role=r;if(!role)return shell('<p>Este correo no tiene acceso al control.</p>');
- sv=(await sb.from('servicios').select('id,categoria,nombre,duracion_min,precio').order('id')).data||[];shell();load()}
+ sv=(await sb.from('servicios').select('id,categoria,nombre,duracion_min,precio').order('id')).data||[];await nmLoad();shell();load()}
 document.addEventListener('click',async ev=>{const t=ev.target,r=t.closest('.row');
  if(t.dataset.t){tab=t.dataset.t;load()}
  else if(t.id=='new')form();
