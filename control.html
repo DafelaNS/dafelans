@@ -108,7 +108,7 @@ const ml=k=>MES[+k.slice(5,7)-1]+' '+k.slice(2,4);
 const DN=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'],ORD=[1,2,3,4,5,6,0];
 const PAL=['#4e2f1f','#b08a4e','#8a6a4f','#d3c3ae','#7d5f2d','#a07860','#5d4636','#c9a56a'];
 let role,tab='citas',rows=[],sv=[],per='Mes',fp='Este mes',dp='6 meses',sm=null,ch=[],DD=null,VA=false,am='dia',ad=new Date(),NM=[],AJ=null,AG=[],PCT=15;ad.setHours(0,0,0,0);
-const CAT=['Esmaltes','Limas','Acrílico','Decoración','Otros'],MET=['Efectivo','Transferencia','Tarjeta'],GT=['Renta','Sueldo','Comisiones','Propinas','Material','Servicios','Otro'];
+const CAT=['Esmaltes','Limas','Acrílico','Decoración','Otros'],MET=['Efectivo','Transferencia','Tarjeta'],METC=['Efectivo','Transferencia','Tarjeta','Tarjeta de regalo'],GT=['Renta','Sueldo','Comisiones','Propinas','Material','Servicios','Otro'];
 const T={
 citas:{n:'Citas',cobrar:1,search:1,sel:'*,clientas(nombre,telefono),servicios(nombre)',ord:'fecha_hora',asc:1,pc:'fecha_hora',fut:1,
  f:[['clienta_id','','hid'],['clienta_nombre','Nombre de la clienta (escribe para buscar)','text'],['clienta_tel','Teléfono','tel'],['servicios_ids','Servicios (puedes elegir varios)','svm'],['fecha_hora','Fecha y hora','datetime-local'],['duracion_min','Duración (min)','number'],['atiende','Atiende','text'],['estado','Estado',['pendiente','confirmada','realizada','cancelada']],['notas','Notas','area']],
@@ -150,6 +150,14 @@ fijos:{n:'Fijos',only:'duena',tb:'gastos_fijos',ord:'id',asc:1,
  f:[['concepto','Concepto (ej. Renta, Sueldo de Eli)','text'],['categoria','Tipo',GT],['monto','Monto (por mes o por semana)','number'],['frecuencia','Se paga',['Mensual','Semanal']],['dia','Día del mes (si es mensual)','number'],['dia_semana','Día de la semana (si es semanal)',DSEM],['activo','Activo','chk']],
  t:r=>r.concepto,s:r=>r.frecuencia=='Semanal'?'Semanal · cada '+String(r.dia_semana||'Sábado').toLowerCase():r.categoria+' · mensual, día '+(r.dia||1),b:r=>money(r.monto)+(r.frecuencia=='Semanal'?' / sem':'')+(r.activo?'':' (inactivo)'),
  extra:()=>'<div class="act"><button class="o" id="genfijos">Registrar fijos en Gastos</button><button class="o" id="pagosem">Pago semanal (sueldo, comisión, propinas)</button></div>'},
+tarjetas:{n:'Tarjetas',only:'duena',tb:'tarjetas_regalo',ord:'id',asc:0,search:1,
+ f:[['codigo','Código de la tarjeta (el que lleva impreso)','text'],['monto','Valor de la tarjeta ($)','number'],['para','Para (quien la recibe)','text'],['comprador','Quién la compró','text'],['fecha','Fecha de venta','date'],['vence','Vence (opcional)','date'],['notas','Notas','area'],['activa','Activa','chk']],
+ nuevo:()=>({codigo:'DAF-'+String(rows.length+1).padStart(3,'0')}),
+ after:async rs=>{const{data}=await sb.from('tarjetas_regalo_mov').select('tarjeta_id,monto');const u={};(data||[]).forEach(m=>{u[m.tarjeta_id]=(u[m.tarjeta_id]||0)+Number(m.monto||0)});rs.forEach(r=>{r.usado=u[r.id]||0;r.saldo=Number(r.monto||0)-r.usado})},
+ open:r=>tarjetaDlg(r),
+ t:r=>r.codigo+(r.para?' · '+r.para:''),
+ s:r=>'Valor '+money(r.monto)+' · usado '+money(r.usado)+(r.vence?' · vence '+r.vence:''),
+ b:r=>!r.activa?'Inactiva':r.saldo<=0.004?'Agotada':(r.vence&&r.vence<today)?'Vencida':'Saldo '+money(r.saldo)},
 finanzas:{n:'Finanzas',only:'duena',view:'fin'},
 dashboard:{n:'Dashboard',only:'duena',view:'dash'}};
 
@@ -165,7 +173,7 @@ async function load(){const c=T[tab];
  let q=sb.from(c.tb||tab).select(c.sel||'*').order(c.ord||'id',{ascending:!!c.asc});
  if(c.pc){const r=rng(c);if(r)q=q.gte(c.pc,r[0]).lt(c.pc,r[1])}
  const{data,error}=await q;if(error)return alert(error.message);
- rows=c.one?[data?.[0]||{id:1}]:data||[];draw()}
+ rows=c.one?[data?.[0]||{id:1}]:data||[];if(c.after)await c.after(rows);draw()}
 function drawTabs(){const c=T[tab];
  $('#tabs').innerHTML=Object.entries(T).filter(([k,v])=>!v.only||v.only==role).map(([k,v])=>`<button data-t="${k}" class="${k==tab?'on':''}">${v.n}</button>`).join('');
  $('#new').hidden=!!(c.one||c.view)}
@@ -198,22 +206,79 @@ async function cobro(id,p,nm){const{data:ya}=await sb.rpc('cita_cobrada',{p_cita
  <label>Descuento aplicado ($)<input name="desc" type="number" step="any" min="0" placeholder="0"></label>
  <div class="dsc">${[5,10,15,20].map(x=>`<button type="button" data-pc="${x}">${x}%</button>`).join('')}<button type="button" data-pc="0">Sin</button></div>
  <div class="tot" id="ctot"></div>
- <label>Pago<select name="metodo">${MET.map(o=>`<option>${o}</option>`).join('')}</select></label>
+ <label>Pago<select name="metodo">${METC.map(o=>`<option>${o}</option>`).join('')}</select></label>
+ <div id="tg" hidden><label>Tarjeta de regalo<select name="tarj"><option value="">Cargando tarjetas…</option></select></label>
+  <label>Monto que se paga con la tarjeta ($)<input name="mtar" type="number" step="any" min="0"></label>
+  <div class="msg" id="tinfo" style="margin:8px 0"></div>
+  <div id="rl" hidden><label><span id="rtx">El resto se paga con</span><select name="resto">${MET.map(o=>`<option>${o}</option>`).join('')}</select></label></div></div>
  <label>Propina (opcional) · ${p.atiende?'para '+e(p.atiende):'sin manicurista asignada'}<input name="prop" type="number" step="any" min="0" placeholder="0"></label>
  <div class="bt"><button type="button" id="cx">Omitir</button><button class="ok">Guardar cobro</button></div></form>`;
  d.showModal();
  const Lp=()=>Number($('#cf [name=lista]').value||0),Dc=()=>Math.min(Number($('#cf [name=desc]').value||0),Lp());
- const tot=()=>{$('#ctot').textContent='Total a cobrar: '+money(Math.max(0,Lp()-Dc()))};tot();
- $('#cf').oninput=tot;
+ let TJ=[],mtM=false;
+ const Tt=()=>Math.max(0,Lp()-Dc()),tgOn=()=>$('#cf [name=metodo]').value=='Tarjeta de regalo',cur=()=>TJ.find(x=>String(x.id)==$('#cf [name=tarj]').value);
+ const tgUpd=()=>{if(!tgOn())return;const c=cur(),mt=$('#cf [name=mtar]'),t=Tt();
+  if(!c){$('#tinfo').textContent=TJ.length?'Elige la tarjeta.':'No hay tarjetas con saldo.';$('#rl').hidden=true;return}
+  if(!mtM)mt.value=Math.round(Math.min(c.saldo,t)*100)/100||'';
+  const m=Number(mt.value||0),rest=Math.round((t-m)*100)/100;
+  $('#tinfo').textContent='Saldo de la tarjeta: '+money(c.saldo)+(m>c.saldo+0.004?' · ¡no alcanza!':' · después de este cobro quedará '+money(Math.max(0,c.saldo-m)));
+  $('#rl').hidden=!(rest>0.004);if(rest>0.004)$('#rtx').textContent='El resto ('+money(rest)+') se paga con'};
+ const tot=()=>{$('#ctot').textContent='Total a cobrar: '+money(Tt());tgUpd()};tot();
+ $('#cf').oninput=ev=>{const n=ev.target.name;if(n=='mtar')mtM=true;else if(n=='desc'||n=='lista')mtM=false;tot()};
+ $('#cf').onchange=async ev=>{const n=ev.target.name;
+  if(n=='metodo'){const on=tgOn();$('#tg').hidden=!on;
+   if(on&&!TJ.length){try{TJ=await tarList(true)}catch(x){alert('No se pudieron leer las tarjetas: '+x.message)}
+    $('#cf [name=tarj]').innerHTML=TJ.length?'<option value="">Elige la tarjeta</option>'+TJ.map(x=>`<option value="${x.id}">${e(x.codigo)}${x.para?' · '+e(x.para):''} · saldo ${money(x.saldo)}</option>`).join(''):'<option value="">No hay tarjetas con saldo</option>'}
+   tgUpd()}
+  else if(n=='tarj'){mtM=false;tgUpd()}
+  else if(n=='resto'){}};
  d.querySelectorAll('[data-pc]').forEach(b=>b.onclick=()=>{$('#cf [name=desc]').value=+b.dataset.pc?Math.round(Lp()*Number(b.dataset.pc))/100:'';tot()});
  $('#cx').onclick=()=>{d.close();load()};
  $('#cf').onsubmit=async ev=>{ev.preventDefault();const f=new FormData(ev.target),lista=Lp(),desc=Dc(),total=Math.max(0,lista-desc);
-  const{data:ok,error}=await sb.rpc('registrar_cobro',{p_cita:String(id),p_fecha:ymd(new Date(p.fecha_hora)),p_concepto:I.n+(nm?' · '+nm:''),p_monto:total,p_metodo:f.get('metodo'),p_atiende:p.atiende||null,p_descuento:desc,p_lista:lista});
+  let met=f.get('metodo'),tid=null,mt=0;
+  if(met=='Tarjeta de regalo'){const c=cur();mt=Math.round(Number(f.get('mtar')||0)*100)/100;
+   if(!c)return alert('Elige la tarjeta de regalo.');
+   if(mt<=0)return alert('Escribe cuánto se paga con la tarjeta.');
+   if(mt>c.saldo+0.004)return alert('La tarjeta solo tiene '+money(c.saldo)+' de saldo.');
+   if(mt>total+0.004)return alert('La tarjeta no puede cubrir más que el total ('+money(total)+').');
+   tid=c.id;met=mt>=total-0.004?'Tarjeta de regalo':f.get('resto')}
+  const{data:ok,error}=await sb.rpc('registrar_cobro',{p_cita:String(id),p_fecha:ymd(new Date(p.fecha_hora)),p_concepto:I.n+(nm?' · '+nm:''),p_monto:total,p_metodo:met,p_atiende:p.atiende||null,p_descuento:desc,p_lista:lista,p_tarjeta:tid,p_monto_tarjeta:mt});
   if(error)return alert(error.message);
   const pr=Number(f.get('prop')||0);
   if(pr>0&&ok!==false){const{error:e2}=await sb.from('propinas').insert({fecha:ymd(new Date(p.fecha_hora)),cita_id:String(id),atiende:p.atiende||null,monto:pr});if(e2)alert('El cobro se guardó, pero la propina no: '+e2.message)}
   await sb.from('citas').update({estado:'realizada'}).eq('id',id);
-  d.close();if(ok===false)alert('Esa cita ya estaba cobrada.');load()};return true}
+  d.close();if(ok===false)alert('Esa cita ya estaba cobrada.');
+  else if(tid){const c=cur(),q=Math.max(0,Math.round((c.saldo-mt)*100)/100);alert('Tarjeta '+c.codigo+': '+(q<=0.004?'quedó en $0 (ya se usó toda).':'le quedan '+money(q)+'.'))}
+  load()};return true}
+
+/* ---------- tarjetas de regalo ---------- */
+async function tarList(soloUsables){
+ const[a,b]=await Promise.all([sb.from('tarjetas_regalo').select('*').order('id',{ascending:false}),sb.from('tarjetas_regalo_mov').select('tarjeta_id,monto')]);
+ if(a.error)throw a.error;
+ const u={};(b.data||[]).forEach(m=>{u[m.tarjeta_id]=(u[m.tarjeta_id]||0)+Number(m.monto||0)});
+ const L=(a.data||[]).map(r=>({...r,usado:u[r.id]||0,saldo:Number(r.monto||0)-(u[r.id]||0)}));
+ return soloUsables?L.filter(r=>r.activa&&r.saldo>0.004&&(!r.vence||r.vence>=today)):L}
+async function tarSum(){try{const L=await tarList(false);if(!L.length)return'';
+ const v=L.reduce((s,x)=>s+Number(x.monto||0),0),u=L.reduce((s,x)=>s+x.usado,0),p=L.filter(x=>x.activa).reduce((s,x)=>s+Math.max(0,x.saldo),0);
+ return`<div class="msg">Tarjetas de regalo: vendidas <b>${money(v)}</b> · usadas <b>${money(u)}</b> · saldo pendiente <b>${money(p)}</b>. El dinero de la venta cuenta como ingreso cuando se usa la tarjeta, no al venderla.</div>`}catch{return''}}
+async function tarjetaDlg(r){const d=$('#dlg');
+ d.innerHTML='<h3>Tarjeta de regalo</h3><p style="color:var(--mut)">Cargando…</p>';if(!d.open)d.showModal();
+ const{data}=await sb.from('tarjetas_regalo_mov').select('*').eq('tarjeta_id',r.id).order('fecha',{ascending:false}).order('id',{ascending:false});
+ const H=data||[],usado=H.reduce((s,m)=>s+Number(m.monto||0),0),saldo=Number(r.monto||0)-usado;
+ d.innerHTML=`<h3>${e(r.codigo)}</h3>
+ <p>${r.para?'Para '+e(r.para)+'<br>':''}${r.comprador?'Compró '+e(r.comprador)+'<br>':''}Vendida el ${e(r.fecha||'')}${r.vence?' · vence '+e(r.vence):''}</p>
+ <div class="k"><div class="card"><small>Valor</small><b>${money(r.monto)}</b></div><div class="card"><small>Saldo</small><b class="${saldo>0.004?'pos':'neg'}">${money(saldo)}</b></div></div>
+ <p>${saldo<=0.004?'Ya se usó toda.':!r.activa?'Está inactiva.':(r.vence&&r.vence<today)?'Está vencida.':'Todavía tiene saldo.'}</p>
+ <h4>Usos</h4>${H.map(m=>`<div class="ln"><span>${e(m.concepto||'Uso manual')}<small>${e(m.fecha)}${m.atiende?' · '+e(m.atiende):''}</small></span><b>${Number(m.monto)<0?'+':'−'}${money(Math.abs(m.monto))}</b></div>`).join('')||'<p style="color:var(--mut)">Aún no se ha usado.</p>'}
+ <div class="bt" style="flex-direction:column"><button class="ok" id="tj-e">Editar tarjeta</button><button id="tj-m">Registrar uso o ajuste manual</button><button id="cx">Cerrar</button></div>`;
+ $('#cx').onclick=()=>d.close();
+ $('#tj-e').onclick=()=>{d.close();form(r)};
+ $('#tj-m').onclick=async()=>{const v=prompt('Monto a descontar del saldo ($). Usa un número negativo para devolver saldo.','');if(v===null)return;
+  const m=Number(v);if(!isFinite(m)||m===0)return alert('Escribe un monto válido.');
+  if(m>saldo+0.004)return alert('El saldo es solo '+money(saldo)+'.');
+  const c=prompt('¿Para qué fue? (opcional)','')||'Ajuste manual';
+  const{error}=await sb.from('tarjetas_regalo_mov').insert({tarjeta_id:r.id,fecha:today,monto:m,concepto:c});
+  if(error)return alert(error.message);tarjetaDlg(r);load()}}
 
 /* TARJETA START */
 const rr=(x,a,b,w,h,r)=>{x.beginPath();x.moveTo(a+r,b);x.arcTo(a+w,b,a+w,b+h,r);x.arcTo(a+w,b+h,a,b+h,r);x.arcTo(a,b+h,a,b,r);x.arcTo(a,b,a+w,b,r);x.closePath()};
@@ -455,7 +520,7 @@ function form(r){const c=T[tab],v=r?{...r,...(c.pre?c.pre(r):{})}:{};
   else if(t=='hs'){const w=x||{};return`<div style="margin-top:12px"><span style="font-size:.85rem;color:var(--mut)">${l}</span>${ORD.map(i=>`<div class="hs"><span>${DN[i]}</span><input type="time" name="${k}_${i}a" value="${e(w[i]?.[0]||'')}"><input type="time" name="${k}_${i}b" value="${e(w[i]?.[1]||'')}"></div>`).join('')}<small style="color:var(--mut)">Abre / cierra. Deja vacío el día que no abres.</small></div>`}
   else if(t=='file'||t=='fileo')h=`<input ${n} type="file" accept="image/*">${x?`<img src="${e(x)}" alt="" style="display:block;max-width:100%;max-height:130px;margin-top:8px;border-radius:8px">`:''}`;
   else if(t=='hid')return`<input type="hidden" ${n} value="${e(x??'')}">`;
-  else h=`<input ${n}${k=='clienta_nombre'?' autocomplete="off"':''}${k=='atiende'?' list="atl" autocomplete="off"':''} type="${t}"${t=='number'?' step="any"':''}${t=='datetime-local'||k=='monto'||k=='nombre'?' required':''} value="${e(t=='datetime-local'&&x?loc(x):x??(t=='date'?today:''))}">`;
+  else h=`<input ${n}${k=='clienta_nombre'?' autocomplete="off"':''}${k=='atiende'?' list="atl" autocomplete="off"':''} type="${t}"${t=='number'?' step="any"':''}${t=='datetime-local'||k=='monto'||k=='nombre'||k=='codigo'?' required':''} value="${e(t=='datetime-local'&&x?loc(x):x??(t=='date'?today:''))}">`;
   return`<label>${l}${h}</label>`+(k=='clienta_nombre'?'<div id="clsug" class="sug"></div>':'')+(k=='atiende'?'<datalist id="atl">'+NM.map(x=>'<option value="'+e(x)+'">').join('')+'</datalist>':'')};
  const d=$('#dlg');
  d.innerHTML=`<form id="f"><h3>${c.one?'Datos del salón':r?.id?'Editar':'Nuevo'}</h3>${c.f.map(fld).join('')}<div class="bt"><button type="button" id="cx">Cancelar</button>${r?.id&&!c.one?'<button type="button" class="rd" id="del">Eliminar</button>':''}<button class="ok">Guardar</button></div></form>`;
@@ -506,6 +571,7 @@ async function vFin(){const L=$('#list');L.innerHTML='<p style="text-align:cente
   const aj=a.data||{},I=sum(d.ing),G=sum(d.gas),U=I-G,fj=(b.data||[]).reduce((s,x)=>s+Number(x.monto||0)*(x.frecuencia=='Semanal'?52/12:1),0);
   const p=[aj.pct_inversion??30,aj.pct_duena??50,aj.pct_reserva??20],ps=p.reduce((x,y)=>x+Number(y),0);
   const nom=['Reinversión (material, equipo, publicidad)','Para ti (ganancia de la dueña)','Reserva (imprevistos y meses bajos)'];
+  const TG=await tarSum();
   const gc=Object.entries(grp(d.gas,x=>x.categoria)).sort((x,y)=>y[1]-x[1]),im=Object.entries(grp(d.ing,x=>x.metodo)).sort((x,y)=>y[1]-x[1]);
   L.innerHTML=`<select id="fp" class="o">${['Este mes','Mes pasado','Últimos 3 meses','Este año','Todo'].map(x=>`<option${x==fp?' selected':''}>${x}</option>`).join('')}</select>
   <div class="k">${kpis(I,G)}</div>
@@ -513,6 +579,7 @@ async function vFin(){const L=$('#list');L.innerHTML='<p style="text-align:cente
   ${U>0?p.map((x,i)=>`<div class="ln"><span>${nom[i]}<small>${x}% de la ganancia</small></span><b>${money(U*x/100)}</b></div>`).join(''):`<div class="msg">${U<0?`Gastaste ${money(G)} y entraron ${money(I)}: hay una pérdida de ${money(-U)}.`:'Lo que entró fue igual a lo gastado.'} No hay ganancia que repartir. Revisa abajo en qué tipo de gasto se va más.</div>`}
   ${sum(d.ing,'descuento')>0?`<div class="msg">Descuentos otorgados en este periodo: <b>${money(sum(d.ing,'descuento'))}</b> (lo que dejaste de cobrar).</div>`:''}
   <div class="msg">Gastos fijos registrados: <b>${money(fj)}</b> al mes (los semanales, promediados). Tus ingresos del mes deben superar esa cantidad para no perder.</div>
+  ${TG}
   <h4>Porcentajes del reparto <small>(una guía; ajústala a tu negocio y que sume 100)</small></h4>
   ${nom.map((n,i)=>`<div class="ln"><span>${n}</span><input class="pi" id="p${i}" type="number" step="any" value="${p[i]}"></div>`).join('')}
   <div class="ln"><span class="${Math.round(ps)==100?'pos':'neg'}">Suma: ${ps}%</span><button class="o" id="savepct">Guardar porcentajes</button></div>
@@ -561,7 +628,7 @@ async function start(){const{data:{session}}=await sb.auth.getSession();if(!sess
  sv=(await sb.from('servicios').select('id,categoria,nombre,duracion_min,precio').order('id')).data||[];await nmLoad();shell();load()}
 document.addEventListener('click',async ev=>{const t=ev.target,r=t.closest('.row');
  if(t.dataset.t){tab=t.dataset.t;load()}
- else if(t.id=='new')form();
+ else if(t.id=='new')form(T[tab].nuevo?T[tab].nuevo():undefined);
  else if(t.id=='out'){await sb.auth.signOut();login()}
  else if(t.id=='savepct'){const v=[0,1,2].map(i=>Number($('#p'+i).value||0));
   if(Math.round(v[0]+v[1]+v[2])!=100)return alert('Los porcentajes deben sumar 100.');
@@ -581,7 +648,7 @@ document.addEventListener('click',async ev=>{const t=ev.target,r=t.closest('.row
  else if(t.dataset.cobrar){const x=rows[r.dataset.i];if(!await cobro(x.id,{servicios_ids:x.servicios_ids,servicio_id:x.servicio_id,fecha_hora:x.fecha_hora,atiende:x.atiende},x.clientas?.nombre))alert('Esa cita ya está cobrada.')}
  else if(t.dataset.conf){const x=rows[r.dataset.i];confirmar({nombre:x.clientas?.nombre,tel:x.clientas?.telefono,fecha_hora:x.fecha_hora,ids:svIds(x.servicios_ids,x.servicio_id),dur:x.duracion_min})}
  else if(t.classList.contains('st')){const x=rows[r.dataset.i],n=Math.max(0,(x.cantidad||0)+Number(t.dataset.d));await sb.from('inventario').update({cantidad:n}).eq('id',x.id);x.cantidad=n;draw()}
- else if(r)form(rows[r.dataset.i])});
+ else if(r)(T[tab].open?T[tab].open(rows[r.dataset.i]):form(rows[r.dataset.i]))});
 document.addEventListener('change',ev=>{const i=ev.target.id,v=ev.target.value;
  if(i=='per'){per=v;load()}else if(i=='fp'){fp=v;vFin()}else if(i=='dp'){dp=v;vDash()}});
 document.addEventListener('input',ev=>{if(ev.target.id!='q')return;const q=norm(ev.target.value.trim());document.querySelectorAll('#list .row').forEach(r=>{r.style.display=!q||r.dataset.q.includes(q)?'':'none'})});
