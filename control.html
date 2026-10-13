@@ -579,11 +579,13 @@ async function vFin(){const L=$('#list');L.innerHTML='<p style="text-align:cente
   <h4>Resumen del periodo <small>monto y % de lo que entró</small></h4>
   <div class="ln"><span>Ingresos<small>100%</small></span><b>${money(I)}</b></div>
   <div class="ln"><span>Gastos<small>${pc(G,I)} de los ingresos</small></span><b class="neg">−${money(G)}</b></div>
-  <div class="ln"><span>${U>=0?'Ganancia':'Pérdida'}<small>${pc(Math.abs(U),I)} de los ingresos</small></span><b class="${U>=0?'pos':'neg'}">${money(U)}</b></div>
+  <div class="ln"><span>${U>=0?'Ganancia':'Pérdida'}<small>${pc(Math.abs(U),I)} de los ingresos</small></span><b class="${U>=0?'pos':'neg'}">${U<0?'−'+money(-U):money(U)}</b></div>
+  <h4>Gastos por tipo</h4>${gc.map(([k,v])=>`<div class="ln"><span>${e(k)}<small>${G?(v/G*100).toFixed(0):0}% del gasto · ${pc(v,I)} de los ingresos</small></span><b>${money(v)}</b></div>`).join('')||'<p style="color:var(--mut)">Sin gastos en este periodo.</p>'}
   <h4>${U>0?'¿Qué hacer con la ganancia?':'Sin ganancia en este periodo'}</h4>
-  ${U>0?`<div class="bar">${p.map((x,i)=>`<i style="width:${x/ps*100}%;background:${PAL[i]}"></i>`).join('')}</div>
-  ${p.map((x,i)=>`<div class="ln"><span><i class="dot" style="background:${PAL[i]}"></i>${nom[i]}<small>${x}% de la ganancia · ${pc(U*x/100,I)} de los ingresos</small></span><b>${money(U*x/100)}</b></div>`).join('')}
-  <div class="ln"><span>Total repartido<small>${ps}% de la ganancia</small></span><b>${money(U*ps/100)}</b></div>`:`<div class="msg">${U<0?`Gastaste ${money(G)} y entraron ${money(I)}: hay una pérdida de ${money(-U)} (${pc(-U,I)} de los ingresos).`:'Lo que entró fue igual a lo gastado.'} No hay ganancia que repartir. Revisa abajo en qué tipo de gasto se va más.</div>`}
+  ${U>0?'':`<div class="msg">${U<0?`Gastaste ${money(G)} y entraron ${money(I)}: hay una pérdida de ${money(-U)} (${pc(-U,I)} de los ingresos).`:'Lo que entró fue igual a lo gastado.'} Todavía no hay ganancia, así que por ahora no corresponde reinvertir ni sacar dinero para ti. Para empezar a ganar necesitas vender más de ${money(G)} en este periodo.</div>`}
+  ${U>0?`<div class="bar">${p.map((x,i)=>`<i style="width:${x/ps*100}%;background:${PAL[i]}"></i>`).join('')}</div>`:''}
+  ${p.map((x,i)=>`<div class="ln"><span><i class="dot" style="background:${PAL[i]}"></i>${nom[i]}<small>${x}% de la ganancia${U>0?' · '+pc(U*x/100,I)+' de los ingresos':''}</small></span><b>${money(Math.max(0,U)*x/100)}</b></div>`).join('')}
+  <div class="ln"><span>Total repartido<small>${ps}% de la ganancia</small></span><b>${money(Math.max(0,U)*ps/100)}</b></div>
   ${sum(d.ing,'descuento')>0?`<div class="msg">Descuentos otorgados en este periodo: <b>${money(sum(d.ing,'descuento'))}</b> (lo que dejaste de cobrar).</div>`:''}
   <div class="msg">Gastos fijos registrados: <b>${money(fj)}</b> al mes (los semanales, promediados). Tus ingresos del mes deben superar esa cantidad para no perder.</div>
   ${TG}
@@ -591,7 +593,6 @@ async function vFin(){const L=$('#list');L.innerHTML='<p style="text-align:cente
   ${nom.map((n,i)=>`<div class="ln"><span>${n}</span><input class="pi" id="p${i}" type="number" step="any" value="${p[i]}"></div>`).join('')}
   <div class="ln"><span class="${Math.round(ps)==100?'pos':'neg'}">Suma: ${ps}%</span><button class="o" id="savepct">Guardar porcentajes</button></div>
   ${comSec(d.ing)}
-  <h4>Gastos por tipo</h4>${gc.map(([k,v])=>`<div class="ln"><span>${e(k)}<small>${G?(v/G*100).toFixed(0):0}% del gasto · ${pc(v,I)} de los ingresos</small></span><b>${money(v)}</b></div>`).join('')||'<p style="color:var(--mut)">Sin gastos en este periodo.</p>'}
   <h4>Ingresos por forma de pago</h4>${im.map(([k,v])=>`<div class="ln"><span>${e(k)}<small>${I?(v/I*100).toFixed(0):0}% del ingreso</small></span><b>${money(v)}</b></div>`).join('')||'<p style="color:var(--mut)">Sin ingresos en este periodo.</p>'}`
  }catch(x){L.innerHTML='<p class="neg">No se pudo cargar: '+e(x.message)+'</p>'}}
 
